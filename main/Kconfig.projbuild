@@ -1,0 +1,46 @@
+menu "Dashboard Configuration"
+
+config WIFI_SSID
+    string "WiFi SSID"
+    default ""
+
+config WIFI_PASS
+    string "WiFi Password"
+    default ""
+
+config GH_USERNAME
+    string "GitHub username"
+    default "dmatking"
+
+config GH_TOKEN
+    string "GitHub personal access token"
+    default ""
+    help
+        Needs repo and read:org scope. Traffic API requires auth.
+        Load from ~/.esp_creds via SDKCONFIG_DEFAULTS.
+
+config DASHBOARD_CYCLE_SEC
+    int "Screen cycle interval (seconds)"
+    default 30
+    range 5 300
+
+config DASHBOARD_TIMEZONE
+    string "Timezone (POSIX TZ string)"
+    default "CST6CDT,M3.2.0,M11.1.0"
+    help
+        POSIX TZ string for local time. Examples:
+          CST6CDT,M3.2.0,M11.1.0   US Central (handles DST)
+          EST5EDT,M3.2.0,M11.1.0   US Eastern
+          MST7MDT,M3.2.0,M11.1.0   US Mountain
+          PST8PDT,M3.2.0,M11.1.0   US Pacific
+          UTC0                      UTC
+
+config DASHBOARD_REFRESH_HOUR
+    int "Daily refresh hour (local time, 0-23)"
+    default 6
+    range 0 23
+    help
+        Hour of day in local time at which stats are re-fetched from GitHub.
+        GitHub traffic data typically updates around midnight UTC.
+
+endmenu
