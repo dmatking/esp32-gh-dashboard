@@ -1,7 +1,7 @@
 // Copyright 2026 David M. King
 // SPDX-License-Identifier: MIT
 //
-// GitHub REST API client — fetches repo list and traffic stats.
+// GitHub API client — fetches pinned repos via GraphQL, traffic via REST.
 
 #include "github_api.h"
 
@@ -14,14 +14,15 @@
 
 static const char *TAG = "github_api";
 
-#define GH_API_BASE  "https://api.github.com"
-#define BUF_SIZE     65536
+#define GH_API_BASE    "https://api.github.com"
+#define GH_GRAPHQL_URL "https://api.github.com/graphql"
+#define BUF_SIZE       16384
 
 // HTTP response accumulation buffer
 typedef struct {
-    char  *data;
-    int    len;
-    int    cap;
+    char *data;
+    int   len;
+    int   cap;
 } http_buf_t;
 
 static esp_err_t http_event_cb(esp_http_client_event_t *evt)
@@ -37,6 +38,12 @@ static esp_err_t http_event_cb(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
+static void set_common_headers(esp_http_client_handle_t client, const char *auth)
+{
+    esp_http_client_set_header(client, "Authorization", auth);
+    esp_http_client_set_header(client, "User-Agent",    "esp32-gh-dashboard");
+}
+
 static bool gh_get(const char *url, char *out_buf, int buf_cap)
 {
     http_buf_t buf = { .data = out_buf, .len = 0, .cap = buf_cap };
@@ -46,19 +53,18 @@ static bool gh_get(const char *url, char *out_buf, int buf_cap)
     snprintf(auth, sizeof(auth), "Bearer %s", CONFIG_GH_TOKEN);
 
     esp_http_client_config_t cfg = {
-        .url                  = url,
-        .event_handler        = http_event_cb,
-        .user_data            = &buf,
-        .transport_type       = HTTP_TRANSPORT_OVER_SSL,
-        .crt_bundle_attach    = esp_crt_bundle_attach,
-        .timeout_ms           = 10000,
-        .buffer_size          = 2048,
-        .buffer_size_tx       = 1024,
+        .url               = url,
+        .event_handler     = http_event_cb,
+        .user_data         = &buf,
+        .transport_type    = HTTP_TRANSPORT_OVER_SSL,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .timeout_ms        = 10000,
+        .buffer_size       = 2048,
+        .buffer_size_tx    = 512,
     };
     esp_http_client_handle_t client = esp_http_client_init(&cfg);
-    esp_http_client_set_header(client, "Authorization", auth);
-    esp_http_client_set_header(client, "User-Agent",    "esp32-gh-dashboard");
-    esp_http_client_set_header(client, "Accept",        "application/vnd.github+json");
+    set_common_headers(client, auth);
+    esp_http_client_set_header(client, "Accept", "application/vnd.github+json");
     esp_http_client_set_header(client, "X-GitHub-Api-Version", "2022-11-28");
 
     esp_err_t err = esp_http_client_perform(client);
@@ -67,6 +73,41 @@ static bool gh_get(const char *url, char *out_buf, int buf_cap)
 
     if (err != ESP_OK || status != 200) {
         ESP_LOGW(TAG, "GET %s → err=%d status=%d", url, err, status);
+        return false;
+    }
+    return true;
+}
+
+static bool gh_graphql(const char *query_body, char *out_buf, int buf_cap)
+{
+    http_buf_t buf = { .data = out_buf, .len = 0, .cap = buf_cap };
+    out_buf[0] = '\0';
+
+    char auth[128];
+    snprintf(auth, sizeof(auth), "Bearer %s", CONFIG_GH_TOKEN);
+
+    esp_http_client_config_t cfg = {
+        .url               = GH_GRAPHQL_URL,
+        .method            = HTTP_METHOD_POST,
+        .event_handler     = http_event_cb,
+        .user_data         = &buf,
+        .transport_type    = HTTP_TRANSPORT_OVER_SSL,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .timeout_ms        = 10000,
+        .buffer_size       = 2048,
+        .buffer_size_tx    = 1024,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&cfg);
+    set_common_headers(client, auth);
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, query_body, strlen(query_body));
+
+    esp_err_t err = esp_http_client_perform(client);
+    int status    = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+
+    if (err != ESP_OK || status != 200) {
+        ESP_LOGW(TAG, "GraphQL → err=%d status=%d", err, status);
         return false;
     }
     return true;
@@ -96,41 +137,50 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
 
     memset(stats, 0, sizeof(*stats));
 
-    // 1. Fetch repo list
-    char url[128];
-    snprintf(url, sizeof(url),
-             GH_API_BASE "/user/repos?per_page=100&type=owner&sort=updated");
+    // 1. Fetch pinned repos via GraphQL
+    char gql[512];
+    snprintf(gql, sizeof(gql),
+        "{\"query\":\"{user(login:\\\"%s\\\"){pinnedItems(first:6,types:REPOSITORY)"
+        "{nodes{...on Repository{name description stargazerCount forkCount isPrivate}}}}}\"}",
+        CONFIG_GH_USERNAME);
 
-    if (!gh_get(url, buf, BUF_SIZE)) {
+    if (!gh_graphql(gql, buf, BUF_SIZE)) {
         free(buf);
         return false;
     }
 
-    cJSON *repos_json = cJSON_Parse(buf);
-    if (!repos_json || !cJSON_IsArray(repos_json)) {
-        ESP_LOGE(TAG, "Failed to parse repo list (len=%d): %.200s", strlen(buf), buf);
-        cJSON_Delete(repos_json);
+    cJSON *root  = cJSON_Parse(buf);
+    cJSON *nodes = NULL;
+    if (root) {
+        cJSON *data  = cJSON_GetObjectItemCaseSensitive(root, "data");
+        cJSON *user  = data  ? cJSON_GetObjectItemCaseSensitive(data,  "user")        : NULL;
+        cJSON *pins  = user  ? cJSON_GetObjectItemCaseSensitive(user,  "pinnedItems") : NULL;
+        nodes        = pins  ? cJSON_GetObjectItemCaseSensitive(pins,  "nodes")       : NULL;
+    }
+
+    if (!nodes || !cJSON_IsArray(nodes)) {
+        ESP_LOGE(TAG, "Failed to parse pinned repos: %.200s", buf);
+        cJSON_Delete(root);
         free(buf);
         return false;
     }
 
     int count = 0;
-    cJSON *repo_item;
-    cJSON_ArrayForEach(repo_item, repos_json) {
+    char url[128];
+    cJSON *node;
+    cJSON_ArrayForEach(node, nodes) {
         if (count >= GH_MAX_REPOS) break;
 
         gh_repo_t *r = &stats->repos[count];
-        json_str(repo_item, "name", r->name, GH_REPO_NAME_LEN);
-        json_str(repo_item, "description", r->desc, GH_DESC_LEN);
-        r->stars      = json_int(repo_item, "stargazers_count");
-        r->forks      = json_int(repo_item, "forks_count");
-        r->is_private = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(repo_item, "private"));
+        json_str(node, "name",        r->name, GH_REPO_NAME_LEN);
+        json_str(node, "description", r->desc, GH_DESC_LEN);
+        r->stars      = json_int(node, "stargazerCount");
+        r->forks      = json_int(node, "forkCount");
+        r->is_private = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(node, "isPrivate"));
 
         // 2. Fetch traffic/views
-        snprintf(url, sizeof(url),
-                 GH_API_BASE "/repos/%s/%s/traffic/views",
+        snprintf(url, sizeof(url), GH_API_BASE "/repos/%s/%s/traffic/views",
                  CONFIG_GH_USERNAME, r->name);
-
         if (gh_get(url, buf, BUF_SIZE)) {
             cJSON *tv = cJSON_Parse(buf);
             if (tv) {
@@ -141,10 +191,8 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
         }
 
         // 3. Fetch traffic/clones
-        snprintf(url, sizeof(url),
-                 GH_API_BASE "/repos/%s/%s/traffic/clones",
+        snprintf(url, sizeof(url), GH_API_BASE "/repos/%s/%s/traffic/clones",
                  CONFIG_GH_USERNAME, r->name);
-
         if (gh_get(url, buf, BUF_SIZE)) {
             cJSON *tc = cJSON_Parse(buf);
             if (tc) {
@@ -165,19 +213,19 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
             }
         }
 
-        stats->total_views        += r->views;
-        stats->total_view_uniques += r->view_uniques;
-        stats->total_clones       += r->clones;
-        stats->total_clone_uniques+= r->clone_uniques;
+        stats->total_views         += r->views;
+        stats->total_view_uniques  += r->view_uniques;
+        stats->total_clones        += r->clones;
+        stats->total_clone_uniques += r->clone_uniques;
 
         count++;
     }
 
     stats->count = count;
-    cJSON_Delete(repos_json);
+    cJSON_Delete(root);
     free(buf);
 
-    ESP_LOGI(TAG, "Fetched %d repos, %lu total views, %lu total clones",
+    ESP_LOGI(TAG, "Fetched %d pinned repos, %lu total views, %lu total clones",
              count, (unsigned long)stats->total_views,
              (unsigned long)stats->total_clones);
     return true;

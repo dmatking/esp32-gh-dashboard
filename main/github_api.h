@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define GH_MAX_REPOS     16
+#define GH_MAX_REPOS     6   // GitHub allows at most 6 pinned repos
 #define GH_REPO_NAME_LEN 48
 #define GH_DESC_LEN      80
 
