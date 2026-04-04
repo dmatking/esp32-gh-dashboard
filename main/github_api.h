@@ -34,6 +34,10 @@ typedef struct {
     uint32_t  total_view_uniques;
     uint32_t  total_clones;
     uint32_t  total_clone_uniques;
+    uint32_t  total_views_delta;
+    uint32_t  total_view_uniques_delta;
+    uint32_t  total_clones_delta;
+    uint32_t  total_clone_uniques_delta;
 } gh_stats_t;
 
 // Fetch stats for all repos owned by CONFIG_GH_USERNAME.

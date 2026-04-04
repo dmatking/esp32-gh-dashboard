@@ -250,10 +250,14 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
             }
         }
 
-        stats->total_views         += r->views;
-        stats->total_view_uniques  += r->view_uniques;
-        stats->total_clones        += r->clones;
-        stats->total_clone_uniques += r->clone_uniques;
+        stats->total_views                += r->views;
+        stats->total_view_uniques         += r->view_uniques;
+        stats->total_clones               += r->clones;
+        stats->total_clone_uniques        += r->clone_uniques;
+        stats->total_views_delta          += r->views_delta;
+        stats->total_view_uniques_delta   += r->view_uniques_delta;
+        stats->total_clones_delta         += r->clones_delta;
+        stats->total_clone_uniques_delta  += r->clone_uniques_delta;
 
         count++;
     }

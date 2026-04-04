@@ -264,21 +264,56 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     font_puts_scaled(PAD, y, buf, C_LABEL_R + 0x30, C_LABEL_G + 0x30, C_LABEL_B + 0x30, 2);
     y += FONT_H * 2 + 16;
 
-    snprintf(buf, sizeof(buf), "Total views:");
-    font_puts_scaled(PAD, y, buf, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
-    char n[16], u[16];
-    snfmt_count(n, sizeof(n), stats->total_views);
-    snfmt_count(u, sizeof(u), stats->total_view_uniques);
-    snprintf(buf, sizeof(buf), "%s  (%s unique)", n, u);
-    font_puts_scaled(PAD + 14 * FONT_W * 2, y, buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+    font_puts_scaled(PAD, y, "Total views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
+    {
+        char n[16], u[16], d[16], ud[16];
+        snfmt_count(n, sizeof(n), stats->total_views);
+        snfmt_count(u, sizeof(u), stats->total_view_uniques);
+        int cx = PAD + 14 * FONT_W * 2;
+        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        cx += strlen(n) * FONT_W * 2;
+        if (stats->total_views_delta) {
+            snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_views_delta);
+            font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(d) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, "  (", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        cx += 3 * FONT_W * 2;
+        font_puts_scaled(cx, y, u, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        cx += strlen(u) * FONT_W * 2;
+        if (stats->total_view_uniques_delta) {
+            snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)stats->total_view_uniques_delta);
+            font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(ud) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, " unique)", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+    }
     y += FONT_H * 2 + 16;
 
-    snprintf(buf, sizeof(buf), "Total clones:");
-    font_puts_scaled(PAD, y, buf, C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
-    snfmt_count(n, sizeof(n), stats->total_clones);
-    snfmt_count(u, sizeof(u), stats->total_clone_uniques);
-    snprintf(buf, sizeof(buf), "%s  (%s unique)", n, u);
-    font_puts_scaled(PAD + 14 * FONT_W * 2, y, buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+    font_puts_scaled(PAD, y, "Total clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
+    {
+        char n[16], u[16], d[16], ud[16];
+        snfmt_count(n, sizeof(n), stats->total_clones);
+        snfmt_count(u, sizeof(u), stats->total_clone_uniques);
+        int cx = PAD + 14 * FONT_W * 2;
+        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        cx += strlen(n) * FONT_W * 2;
+        if (stats->total_clones_delta) {
+            snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_clones_delta);
+            font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(d) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, "  (", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        cx += 3 * FONT_W * 2;
+        font_puts_scaled(cx, y, u, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        cx += strlen(u) * FONT_W * 2;
+        if (stats->total_clone_uniques_delta) {
+            snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)stats->total_clone_uniques_delta);
+            font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(ud) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, " unique)", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+    }
     y += FONT_H * 2 + 40;
 
     draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
