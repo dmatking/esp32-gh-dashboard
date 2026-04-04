@@ -241,8 +241,10 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
                 if (strcmp(prev->repos[i].name, r->name) == 0) {
                     r->views_changed  = (r->views  > prev->repos[i].views);
                     r->clones_changed = (r->clones > prev->repos[i].clones);
-                    r->views_delta    = r->views_changed  ? r->views  - prev->repos[i].views  : 0;
-                    r->clones_delta   = r->clones_changed ? r->clones - prev->repos[i].clones : 0;
+                    r->views_delta         = r->views_changed  ? r->views  - prev->repos[i].views  : 0;
+                    r->clones_delta        = r->clones_changed ? r->clones - prev->repos[i].clones : 0;
+                    r->view_uniques_delta  = (r->view_uniques  > prev->repos[i].view_uniques)  ? r->view_uniques  - prev->repos[i].view_uniques  : 0;
+                    r->clone_uniques_delta = (r->clone_uniques > prev->repos[i].clone_uniques) ? r->clone_uniques - prev->repos[i].clone_uniques : 0;
                     break;
                 }
             }

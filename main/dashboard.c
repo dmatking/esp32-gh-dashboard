@@ -159,42 +159,64 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 
     // -- Views row --
     font_puts_scaled(PAD, y, "Views", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
-
-    // Change indicator
-    if (r->views_changed) {
-        char delta[16];
-        snprintf(delta, sizeof(delta), "+%lu", (unsigned long)r->views_delta);
-        font_puts_scaled(PAD + 5 * FONT_W * 2 + 8, y, delta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
-    }
-
     draw_bar(BAR_X, y + 2, BAR_W, BAR_H, r->views, max_v,
              C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
 
     y += BAR_H + 6;
-    snfmt_count(numstr, sizeof(numstr), r->views);
-    snfmt_count(uniqstr, sizeof(uniqstr), r->view_uniques);
-    char detail[96];
-    snprintf(detail, sizeof(detail), "%s total  %s unique", numstr, uniqstr);
-    font_puts_scaled(BAR_X, y, detail, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    {
+        char delta[16], udelta[16];
+        snfmt_count(numstr, sizeof(numstr), r->views);
+        snfmt_count(uniqstr, sizeof(uniqstr), r->view_uniques);
+        int cx = BAR_X;
+        font_puts_scaled(cx, y, numstr, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+        cx += strlen(numstr) * FONT_W * 2;
+        if (r->views_delta) {
+            snprintf(delta, sizeof(delta), "(+%lu)", (unsigned long)r->views_delta);
+            font_puts_scaled(cx, y, delta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(delta) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, " total  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+        cx += 8 * FONT_W * 2;
+        font_puts_scaled(cx, y, uniqstr, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+        cx += strlen(uniqstr) * FONT_W * 2;
+        if (r->view_uniques_delta) {
+            snprintf(udelta, sizeof(udelta), "(+%lu)", (unsigned long)r->view_uniques_delta);
+            font_puts_scaled(cx, y, udelta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(udelta) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, " unique", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    }
     y += FONT_H * 2 + ROW_PAD;
 
     // -- Clones row --
     font_puts_scaled(PAD, y, "Clones", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
-
-    if (r->clones_changed) {
-        char delta[16];
-        snprintf(delta, sizeof(delta), "+%lu", (unsigned long)r->clones_delta);
-        font_puts_scaled(PAD + 6 * FONT_W * 2 + 8, y, delta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
-    }
-
     draw_bar(BAR_X, y + 2, BAR_W, BAR_H, r->clones, max_v,
              C_CLONES_R, C_CLONES_G, C_CLONES_B);
 
     y += BAR_H + 6;
-    snfmt_count(numstr, sizeof(numstr), r->clones);
-    snfmt_count(uniqstr, sizeof(uniqstr), r->clone_uniques);
-    snprintf(detail, sizeof(detail), "%s total  %s unique", numstr, uniqstr);
-    font_puts_scaled(BAR_X, y, detail, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    {
+        char delta[16], udelta[16];
+        snfmt_count(numstr, sizeof(numstr), r->clones);
+        snfmt_count(uniqstr, sizeof(uniqstr), r->clone_uniques);
+        int cx = BAR_X;
+        font_puts_scaled(cx, y, numstr, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+        cx += strlen(numstr) * FONT_W * 2;
+        if (r->clones_delta) {
+            snprintf(delta, sizeof(delta), "(+%lu)", (unsigned long)r->clones_delta);
+            font_puts_scaled(cx, y, delta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(delta) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, " total  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+        cx += 8 * FONT_W * 2;
+        font_puts_scaled(cx, y, uniqstr, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+        cx += strlen(uniqstr) * FONT_W * 2;
+        if (r->clone_uniques_delta) {
+            snprintf(udelta, sizeof(udelta), "(+%lu)", (unsigned long)r->clone_uniques_delta);
+            font_puts_scaled(cx, y, udelta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+            cx += strlen(udelta) * FONT_W * 2;
+        }
+        font_puts_scaled(cx, y, " unique", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    }
     y += FONT_H * 2 + ROW_PAD;
 
     draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);

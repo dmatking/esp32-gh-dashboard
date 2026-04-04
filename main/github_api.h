@@ -21,8 +21,10 @@ typedef struct {
     uint32_t clone_uniques;
     bool     views_changed;     // true if views increased since last fetch
     bool     clones_changed;
-    uint32_t views_delta;       // how much views increased (0 if unchanged)
+    uint32_t views_delta;          // how much views increased (0 if unchanged)
+    uint32_t view_uniques_delta;
     uint32_t clones_delta;
+    uint32_t clone_uniques_delta;
 } gh_repo_t;
 
 typedef struct {

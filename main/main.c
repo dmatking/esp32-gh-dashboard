@@ -9,11 +9,38 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_netif_sntp.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
 #include "board_interface.h"
 #include "wifi.h"
 #include "github_api.h"
 #include "dashboard.h"
+
+#define NVS_NAMESPACE "dashboard"
+#define NVS_STATS_KEY "gh_stats"
+
+static void stats_save(const gh_stats_t *stats)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h) != ESP_OK) return;
+    nvs_set_blob(h, NVS_STATS_KEY, stats, sizeof(*stats));
+    nvs_commit(h);
+    nvs_close(h);
+    ESP_LOGI("dashboard", "Stats saved to NVS");
+}
+
+static bool stats_load(gh_stats_t *stats)
+{
+    nvs_handle_t h;
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) != ESP_OK) return false;
+    size_t sz = sizeof(*stats);
+    esp_err_t err = nvs_get_blob(h, NVS_STATS_KEY, stats, &sz);
+    nvs_close(h);
+    if (err != ESP_OK || sz != sizeof(*stats)) return false;
+    ESP_LOGI("dashboard", "Previous stats loaded from NVS (%d repos)", stats->count);
+    return true;
+}
 
 static const char *TAG = "dashboard";
 
@@ -75,15 +102,17 @@ void app_main(void)
 
     static gh_stats_t stats;
     static gh_stats_t prev_stats;
+    bool have_prev = stats_load(&prev_stats);
 
     dashboard_draw_fetching();
     ESP_LOGI(TAG, "Fetching GitHub stats...");
-    if (!github_fetch_stats(&stats, NULL)) {
+    if (!github_fetch_stats(&stats, have_prev ? &prev_stats : NULL)) {
         dashboard_draw_error("GitHub API failed");
         ESP_LOGE(TAG, "Initial fetch failed");
         vTaskDelay(portMAX_DELAY);
     }
     ESP_LOGI(TAG, "Fetched %d repos", stats.count);
+    stats_save(&stats);
 
     // Record which day we last fetched so we don't re-fetch until tomorrow
     int last_fetch_yday = -1;
@@ -101,6 +130,7 @@ void app_main(void)
             ESP_LOGI(TAG, "Scheduled 6 AM refresh...");
             memcpy(&prev_stats, &stats, sizeof(stats));
             if (github_fetch_stats(&stats, &prev_stats)) {
+                stats_save(&stats);
                 time_t now = time(NULL);
                 struct tm t;
                 localtime_r(&now, &t);
