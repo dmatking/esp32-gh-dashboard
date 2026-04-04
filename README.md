@@ -2,6 +2,8 @@
 
 A GitHub repository traffic dashboard running on the **Waveshare ESP32-P4-WIFI6-Touch-LCD-4B** — a 720×720 MIPI-DSI display driven by an ESP32-P4 with WiFi via an onboard ESP32-C6 co-processor.
 
+> For chip-level notes on the P4+C6 combination (esp_hosted init, SDIO, PSRAM, errata, etc.) see [esp32-notes](https://github.com/dmatking/esp32-notes).
+
 The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day via the GitHub REST API and cycles through a summary screen followed by a per-repo detail screen for each of your repositories.
 
 <img src="assets/screenshot.jpg" width="480" alt="Dashboard repo screen">
