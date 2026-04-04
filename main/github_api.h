@@ -7,7 +7,7 @@
 
 #define GH_MAX_REPOS     6   // GitHub allows at most 6 pinned repos
 #define GH_REPO_NAME_LEN 48
-#define GH_DESC_LEN      80
+#define GH_DESC_LEN      128
 
 typedef struct {
     char     name[GH_REPO_NAME_LEN];
@@ -21,6 +21,8 @@ typedef struct {
     uint32_t clone_uniques;
     bool     views_changed;     // true if views increased since last fetch
     bool     clones_changed;
+    uint32_t views_delta;       // how much views increased (0 if unchanged)
+    uint32_t clones_delta;
 } gh_repo_t;
 
 typedef struct {

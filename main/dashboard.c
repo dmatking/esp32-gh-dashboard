@@ -162,7 +162,9 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 
     // Change indicator
     if (r->views_changed) {
-        font_puts_scaled(PAD + 5 * FONT_W * 2 + 8, y, "+", C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+        char delta[16];
+        snprintf(delta, sizeof(delta), "+%lu", (unsigned long)r->views_delta);
+        font_puts_scaled(PAD + 5 * FONT_W * 2 + 8, y, delta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
     }
 
     draw_bar(BAR_X, y + 2, BAR_W, BAR_H, r->views, max_v,
@@ -180,7 +182,9 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     font_puts_scaled(PAD, y, "Clones", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
 
     if (r->clones_changed) {
-        font_puts_scaled(PAD + 6 * FONT_W * 2 + 8, y, "+", C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
+        char delta[16];
+        snprintf(delta, sizeof(delta), "+%lu", (unsigned long)r->clones_delta);
+        font_puts_scaled(PAD + 6 * FONT_W * 2 + 8, y, delta, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
     }
 
     draw_bar(BAR_X, y + 2, BAR_W, BAR_H, r->clones, max_v,

@@ -14,6 +14,38 @@
 
 static const char *TAG = "github_api";
 
+// Replace common multi-byte UTF-8 sequences with ASCII equivalents in-place.
+static void sanitize_desc(char *s)
+{
+    char out[GH_DESC_LEN];
+    int si = 0, oi = 0;
+    int slen = strlen(s);
+    while (si < slen && oi < (int)sizeof(out) - 1) {
+        unsigned char c = (unsigned char)s[si];
+        if (c < 0x80) {
+            out[oi++] = s[si++];
+        } else if (c == 0xE2 && si + 2 < slen) {
+            unsigned char b1 = (unsigned char)s[si+1];
+            unsigned char b2 = (unsigned char)s[si+2];
+            if (b1 == 0x80) {
+                if (b2 == 0x93) { out[oi++] = '-'; si += 3; continue; }           // en dash
+                if (b2 == 0x94) { out[oi++] = '-'; si += 3; continue; }           // em dash
+                if (b2 == 0x9C || b2 == 0x9D) { out[oi++] = '"'; si += 3; continue; } // curly quotes
+                if (b2 == 0x98 || b2 == 0x99) { out[oi++] = '\''; si += 3; continue; } // curly apostrophe
+                if (b2 == 0xA6) {                                                  // ellipsis
+                    if (oi + 3 < (int)sizeof(out) - 1) { out[oi++]='.'; out[oi++]='.'; out[oi++]='.'; }
+                    si += 3; continue;
+                }
+            }
+            si++; // skip unknown multi-byte byte
+        } else {
+            si++; // skip other non-ASCII
+        }
+    }
+    out[oi] = '\0';
+    memcpy(s, out, oi + 1);
+}
+
 #define GH_API_BASE    "https://api.github.com"
 #define GH_GRAPHQL_URL "https://api.github.com/graphql"
 #define BUF_SIZE       16384
@@ -174,6 +206,7 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
         gh_repo_t *r = &stats->repos[count];
         json_str(node, "name",        r->name, GH_REPO_NAME_LEN);
         json_str(node, "description", r->desc, GH_DESC_LEN);
+        sanitize_desc(r->desc);
         r->stars      = json_int(node, "stargazerCount");
         r->forks      = json_int(node, "forkCount");
         r->is_private = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(node, "isPrivate"));
@@ -208,6 +241,8 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
                 if (strcmp(prev->repos[i].name, r->name) == 0) {
                     r->views_changed  = (r->views  > prev->repos[i].views);
                     r->clones_changed = (r->clones > prev->repos[i].clones);
+                    r->views_delta    = r->views_changed  ? r->views  - prev->repos[i].views  : 0;
+                    r->clones_delta   = r->clones_changed ? r->clones - prev->repos[i].clones : 0;
                     break;
                 }
             }
