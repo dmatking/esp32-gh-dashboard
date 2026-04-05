@@ -1,23 +1,28 @@
-# gh-stats-dashboard
+# esp32-gh-dashboard
 
 A GitHub repository traffic dashboard running on the **Waveshare ESP32-P4-WIFI6-Touch-LCD-4B** — a 720×720 MIPI-DSI display driven by an ESP32-P4 with WiFi via an onboard ESP32-C6 co-processor.
 
 > For chip-level notes on the P4+C6 combination (esp_hosted init, SDIO, PSRAM, errata, etc.) see [esp32-notes](https://github.com/dmatking/esp32-notes).
 
-The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day via the GitHub REST API and cycles through a summary screen followed by a per-repo detail screen for each of your repositories.
+The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your pinned repositories.
 
 <img src="assets/screenshot.jpg" width="480" alt="Dashboard repo screen">
 
 ## Features
 
-- Summary screen: total views, clones, unique visitors across all repos
-- Per-repo screens: views and clone bars with unique counts, stars/forks, description
-- Green `+` indicator when stats have increased since the last fetch
-- Ticker bar showing all repo names at the bottom of each screen
+- Summary screen: total views, clones, and stars across all pinned repos
+- Per-repo screens: split bars showing unique vs non-unique views and clones, stars/forks, description
+- Green `(+N)` delta indicators showing day-over-day increases
 - BOOT button advances to the next screen immediately
 - Daily refresh at a configurable local time (default: 6:00 AM)
 - NTP time sync with configurable timezone (POSIX TZ string, DST-aware)
 - Configurable screen cycle interval (default: 30 seconds)
+
+## How it works
+
+Traffic data is collected by a companion GitHub Action in [github-traffic-log](https://github.com/dmatking/github-traffic-log), which runs daily and appends stats to a CSV file. The dashboard fetches `latest.csv` (the last two days of data) on boot and at the configured refresh hour, computing true day-over-day deltas regardless of how long the device has been offline.
+
+Pinned repo names and descriptions are fetched via the GitHub GraphQL API. GitHub's traffic API only retains 14 days of history — the CSV log provides permanent accumulation beyond that window.
 
 ## Hardware
 
@@ -32,24 +37,29 @@ The device fetches your GitHub repository traffic stats (views, unique visitors,
 ## Requirements
 
 - [ESP-IDF](https://github.com/espressif/esp-idf) v5.3 or later (tested on v5.5.1)
-- A GitHub [personal access token](https://github.com/settings/tokens) with `repo` scope (needed for traffic API)
+- A GitHub [personal access token](https://github.com/settings/tokens) with `repo` scope
+- The [github-traffic-log](https://github.com/dmatking/github-traffic-log) companion repo set up and collecting data
 
 ## Setup
 
-### 1. Clone
+### 1. Set up the traffic log
+
+Fork or copy [github-traffic-log](https://github.com/dmatking/github-traffic-log) and follow its README to add your `TRAFFIC_TOKEN` secret and set `REPOS_MODE`. Run the workflow once manually to generate the initial `latest.csv`.
+
+### 2. Clone this repo
 
 ```bash
-git clone <repo-url> gh-stats-dashboard
-cd gh-stats-dashboard
+git clone <repo-url> esp32-gh-dashboard
+cd esp32-gh-dashboard
 ```
 
-### 2. Set target
+### 3. Set target
 
 ```bash
 idf.py set-target esp32p4
 ```
 
-### 3. Configure credentials
+### 4. Configure credentials
 
 Create or add to `~/.esp_creds` (loaded automatically by the build system, never committed):
 
@@ -78,34 +88,29 @@ PST8PDT,M3.2.0,M11.1.0   US Pacific
 UTC0                      UTC
 ```
 
-### 4. Build and flash
+### 5. Build and flash
 
 ```bash
 idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-Monitor output (handles the brief USB JTAG reconnect during boot):
+Monitor output:
 
 ```bash
 idf.py -p /dev/ttyACM0 monitor
 ```
 
-## How it works
-
-On boot the device connects to WiFi, syncs the clock via NTP, fetches stats from the GitHub API, and begins cycling through screens. Each day at the configured hour it re-fetches and compares against the previous values — any metric that increased gets a green `+` indicator.
-
-GitHub's traffic data updates roughly once per day (around midnight UTC), so fetching more than once a day returns the same numbers.
-
 ## Project structure
 
 ```
 main/
-  main.c                              App entry point, scheduling logic
+  main.c                              App entry point, scheduling, button handling
   board_waveshare_wvshr_p4_720_touch.c  Display init and pixel API
   board_interface.h                   Board abstraction (pixel, flush, dimensions)
   dashboard.c / .h                    Screen renderer
-  github_api.c / .h                   GitHub REST API client
+  github_api.c / .h                   GraphQL client for pinned repo metadata
+  traffic_csv.c / .h                  CSV fetcher and parser for traffic data
   wifi.c / .h                         WiFi + esp_hosted init
   font8x16.c / .h                     Bitmap font renderer
   Kconfig.projbuild                   menuconfig options

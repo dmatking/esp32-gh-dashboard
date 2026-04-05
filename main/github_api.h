@@ -19,9 +19,9 @@ typedef struct {
     uint32_t view_uniques;
     uint32_t clones;
     uint32_t clone_uniques;
-    bool     views_changed;     // true if views increased since last fetch
+    bool     views_changed;
     bool     clones_changed;
-    uint32_t views_delta;          // how much views increased (0 if unchanged)
+    uint32_t views_delta;
     uint32_t view_uniques_delta;
     uint32_t clones_delta;
     uint32_t clone_uniques_delta;
@@ -40,7 +40,6 @@ typedef struct {
     uint32_t  total_clone_uniques_delta;
 } gh_stats_t;
 
-// Fetch stats for all repos owned by CONFIG_GH_USERNAME.
-// Returns true on success. Populates stats and sets *_changed flags
-// by comparing against prev (may be NULL for first fetch).
-bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev);
+// Fetch pinned repo metadata via GraphQL, traffic via CSV.
+// Deltas are computed day-over-day from latest.csv (no prev needed).
+bool github_fetch_stats(gh_stats_t *stats);

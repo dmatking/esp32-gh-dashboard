@@ -1,9 +1,10 @@
 // Copyright 2026 David M. King
 // SPDX-License-Identifier: MIT
 //
-// GitHub API client — fetches pinned repos via GraphQL, traffic via REST.
+// GitHub API client — fetches pinned repos via GraphQL, traffic via CSV.
 
 #include "github_api.h"
+#include "traffic_csv.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -28,34 +29,28 @@ static void sanitize_desc(char *s)
             unsigned char b1 = (unsigned char)s[si+1];
             unsigned char b2 = (unsigned char)s[si+2];
             if (b1 == 0x80) {
-                if (b2 == 0x93) { out[oi++] = '-'; si += 3; continue; }           // en dash
-                if (b2 == 0x94) { out[oi++] = '-'; si += 3; continue; }           // em dash
-                if (b2 == 0x9C || b2 == 0x9D) { out[oi++] = '"'; si += 3; continue; } // curly quotes
-                if (b2 == 0x98 || b2 == 0x99) { out[oi++] = '\''; si += 3; continue; } // curly apostrophe
-                if (b2 == 0xA6) {                                                  // ellipsis
+                if (b2 == 0x93) { out[oi++] = '-'; si += 3; continue; }
+                if (b2 == 0x94) { out[oi++] = '-'; si += 3; continue; }
+                if (b2 == 0x9C || b2 == 0x9D) { out[oi++] = '"'; si += 3; continue; }
+                if (b2 == 0x98 || b2 == 0x99) { out[oi++] = '\''; si += 3; continue; }
+                if (b2 == 0xA6) {
                     if (oi + 3 < (int)sizeof(out) - 1) { out[oi++]='.'; out[oi++]='.'; out[oi++]='.'; }
                     si += 3; continue;
                 }
             }
-            si++; // skip unknown multi-byte byte
+            si++;
         } else {
-            si++; // skip other non-ASCII
+            si++;
         }
     }
     out[oi] = '\0';
     memcpy(s, out, oi + 1);
 }
 
-#define GH_API_BASE    "https://api.github.com"
 #define GH_GRAPHQL_URL "https://api.github.com/graphql"
-#define BUF_SIZE       16384
+#define BUF_SIZE       4096
 
-// HTTP response accumulation buffer
-typedef struct {
-    char *data;
-    int   len;
-    int   cap;
-} http_buf_t;
+typedef struct { char *data; int len; int cap; } http_buf_t;
 
 static esp_err_t http_event_cb(esp_http_client_event_t *evt)
 {
@@ -68,46 +63,6 @@ static esp_err_t http_event_cb(esp_http_client_event_t *evt)
         }
     }
     return ESP_OK;
-}
-
-static void set_common_headers(esp_http_client_handle_t client, const char *auth)
-{
-    esp_http_client_set_header(client, "Authorization", auth);
-    esp_http_client_set_header(client, "User-Agent",    "esp32-gh-dashboard");
-}
-
-static bool gh_get(const char *url, char *out_buf, int buf_cap)
-{
-    http_buf_t buf = { .data = out_buf, .len = 0, .cap = buf_cap };
-    out_buf[0] = '\0';
-
-    char auth[128];
-    snprintf(auth, sizeof(auth), "Bearer %s", CONFIG_GH_TOKEN);
-
-    esp_http_client_config_t cfg = {
-        .url               = url,
-        .event_handler     = http_event_cb,
-        .user_data         = &buf,
-        .transport_type    = HTTP_TRANSPORT_OVER_SSL,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms        = 10000,
-        .buffer_size       = 2048,
-        .buffer_size_tx    = 512,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&cfg);
-    set_common_headers(client, auth);
-    esp_http_client_set_header(client, "Accept", "application/vnd.github+json");
-    esp_http_client_set_header(client, "X-GitHub-Api-Version", "2022-11-28");
-
-    esp_err_t err = esp_http_client_perform(client);
-    int status    = esp_http_client_get_status_code(client);
-    esp_http_client_cleanup(client);
-
-    if (err != ESP_OK || status != 200) {
-        ESP_LOGW(TAG, "GET %s → err=%d status=%d", url, err, status);
-        return false;
-    }
-    return true;
 }
 
 static bool gh_graphql(const char *query_body, char *out_buf, int buf_cap)
@@ -130,8 +85,9 @@ static bool gh_graphql(const char *query_body, char *out_buf, int buf_cap)
         .buffer_size_tx    = 1024,
     };
     esp_http_client_handle_t client = esp_http_client_init(&cfg);
-    set_common_headers(client, auth);
-    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_header(client, "Authorization", auth);
+    esp_http_client_set_header(client, "User-Agent",    "esp32-gh-dashboard");
+    esp_http_client_set_header(client, "Content-Type",  "application/json");
     esp_http_client_set_post_field(client, query_body, strlen(query_body));
 
     esp_err_t err = esp_http_client_perform(client);
@@ -162,14 +118,14 @@ static void json_str(cJSON *obj, const char *key, char *dst, int dst_len)
     }
 }
 
-bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
+bool github_fetch_stats(gh_stats_t *stats)
 {
     char *buf = malloc(BUF_SIZE);
     if (!buf) return false;
 
     memset(stats, 0, sizeof(*stats));
 
-    // 1. Fetch pinned repos via GraphQL
+    // 1. Fetch pinned repos via GraphQL (names, descriptions, stars, forks)
     char gql[512];
     snprintf(gql, sizeof(gql),
         "{\"query\":\"{user(login:\\\"%s\\\"){pinnedItems(first:6,types:REPOSITORY)"
@@ -184,10 +140,10 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
     cJSON *root  = cJSON_Parse(buf);
     cJSON *nodes = NULL;
     if (root) {
-        cJSON *data  = cJSON_GetObjectItemCaseSensitive(root, "data");
-        cJSON *user  = data  ? cJSON_GetObjectItemCaseSensitive(data,  "user")        : NULL;
-        cJSON *pins  = user  ? cJSON_GetObjectItemCaseSensitive(user,  "pinnedItems") : NULL;
-        nodes        = pins  ? cJSON_GetObjectItemCaseSensitive(pins,  "nodes")       : NULL;
+        cJSON *data = cJSON_GetObjectItemCaseSensitive(root, "data");
+        cJSON *user = data ? cJSON_GetObjectItemCaseSensitive(data, "user")        : NULL;
+        cJSON *pins = user ? cJSON_GetObjectItemCaseSensitive(user, "pinnedItems") : NULL;
+        nodes       = pins ? cJSON_GetObjectItemCaseSensitive(pins, "nodes")       : NULL;
     }
 
     if (!nodes || !cJSON_IsArray(nodes)) {
@@ -197,12 +153,11 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
         return false;
     }
 
+    // Collect pinned repo names and metadata
     int count = 0;
-    char url[128];
     cJSON *node;
     cJSON_ArrayForEach(node, nodes) {
         if (count >= GH_MAX_REPOS) break;
-
         gh_repo_t *r = &stats->repos[count];
         json_str(node, "name",        r->name, GH_REPO_NAME_LEN);
         json_str(node, "description", r->desc, GH_DESC_LEN);
@@ -210,64 +165,58 @@ bool github_fetch_stats(gh_stats_t *stats, const gh_stats_t *prev)
         r->stars      = json_int(node, "stargazerCount");
         r->forks      = json_int(node, "forkCount");
         r->is_private = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(node, "isPrivate"));
-
-        // 2. Fetch traffic/views
-        snprintf(url, sizeof(url), GH_API_BASE "/repos/%s/%s/traffic/views",
-                 CONFIG_GH_USERNAME, r->name);
-        if (gh_get(url, buf, BUF_SIZE)) {
-            cJSON *tv = cJSON_Parse(buf);
-            if (tv) {
-                r->views        = json_int(tv, "count");
-                r->view_uniques = json_int(tv, "uniques");
-                cJSON_Delete(tv);
-            }
-        }
-
-        // 3. Fetch traffic/clones
-        snprintf(url, sizeof(url), GH_API_BASE "/repos/%s/%s/traffic/clones",
-                 CONFIG_GH_USERNAME, r->name);
-        if (gh_get(url, buf, BUF_SIZE)) {
-            cJSON *tc = cJSON_Parse(buf);
-            if (tc) {
-                r->clones        = json_int(tc, "count");
-                r->clone_uniques = json_int(tc, "uniques");
-                cJSON_Delete(tc);
-            }
-        }
-
-        // 4. Compare against previous fetch
-        if (prev) {
-            for (int i = 0; i < prev->count; i++) {
-                if (strcmp(prev->repos[i].name, r->name) == 0) {
-                    r->views_changed  = (r->views  > prev->repos[i].views);
-                    r->clones_changed = (r->clones > prev->repos[i].clones);
-                    r->views_delta         = r->views_changed  ? r->views  - prev->repos[i].views  : 0;
-                    r->clones_delta        = r->clones_changed ? r->clones - prev->repos[i].clones : 0;
-                    r->view_uniques_delta  = (r->view_uniques  > prev->repos[i].view_uniques)  ? r->view_uniques  - prev->repos[i].view_uniques  : 0;
-                    r->clone_uniques_delta = (r->clone_uniques > prev->repos[i].clone_uniques) ? r->clone_uniques - prev->repos[i].clone_uniques : 0;
-                    break;
-                }
-            }
-        }
-
-        stats->total_views                += r->views;
-        stats->total_view_uniques         += r->view_uniques;
-        stats->total_clones               += r->clones;
-        stats->total_clone_uniques        += r->clone_uniques;
-        stats->total_views_delta          += r->views_delta;
-        stats->total_view_uniques_delta   += r->view_uniques_delta;
-        stats->total_clones_delta         += r->clones_delta;
-        stats->total_clone_uniques_delta  += r->clone_uniques_delta;
-
         count++;
     }
-
     stats->count = count;
     cJSON_Delete(root);
     free(buf);
 
-    ESP_LOGI(TAG, "Fetched %d pinned repos, %lu total views, %lu total clones",
-             count, (unsigned long)stats->total_views,
-             (unsigned long)stats->total_clones);
+    // 2. Fetch traffic CSV (one request for all repos)
+    static csv_data_t csv;   // static to avoid stack pressure
+    if (!traffic_csv_fetch(&csv)) {
+        ESP_LOGW(TAG, "CSV fetch failed — traffic data unavailable");
+        return true;  // partial success: metadata ok, traffic zeroed
+    }
+
+    // 3. Populate each pinned repo from CSV and compute day-over-day deltas
+    for (int i = 0; i < stats->count; i++) {
+        gh_repo_t *r = &stats->repos[i];
+
+        const csv_row_t *today = traffic_csv_find(&csv, csv.newest_date, r->name);
+        const csv_row_t *prev  = csv.prev_date[0]
+                                 ? traffic_csv_find(&csv, csv.prev_date, r->name)
+                                 : NULL;
+
+        if (today) {
+            r->views        = today->views;
+            r->view_uniques = today->view_uniques;
+            r->clones       = today->clones;
+            r->clone_uniques = today->clone_uniques;
+            // stars/forks from CSV may be more current than GraphQL cache
+            if (today->stars > r->stars) r->stars = today->stars;
+            if (today->forks > r->forks) r->forks = today->forks;
+        }
+
+        if (today && prev) {
+            r->views_delta        = (today->views        > prev->views)        ? today->views        - prev->views        : 0;
+            r->view_uniques_delta = (today->view_uniques > prev->view_uniques) ? today->view_uniques - prev->view_uniques : 0;
+            r->clones_delta       = (today->clones       > prev->clones)       ? today->clones       - prev->clones       : 0;
+            r->clone_uniques_delta = (today->clone_uniques > prev->clone_uniques) ? today->clone_uniques - prev->clone_uniques : 0;
+            r->views_changed  = (r->views_delta  > 0);
+            r->clones_changed = (r->clones_delta > 0);
+        }
+
+        stats->total_views               += r->views;
+        stats->total_view_uniques        += r->view_uniques;
+        stats->total_clones              += r->clones;
+        stats->total_clone_uniques       += r->clone_uniques;
+        stats->total_views_delta         += r->views_delta;
+        stats->total_view_uniques_delta  += r->view_uniques_delta;
+        stats->total_clones_delta        += r->clones_delta;
+        stats->total_clone_uniques_delta += r->clone_uniques_delta;
+    }
+
+    ESP_LOGI(TAG, "Fetched %d pinned repos from CSV — newest=%s prev=%s",
+             count, csv.newest_date, csv.prev_date[0] ? csv.prev_date : "(none)");
     return true;
 }

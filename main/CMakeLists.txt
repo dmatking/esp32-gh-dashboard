@@ -12,6 +12,7 @@ idf_component_register(
          "board_defaults.c"
          "wifi.c"
          "github_api.c"
+         "traffic_csv.c"
          "dashboard.c"
          "font8x16.c"
          ${EXTRA_SRCS}
