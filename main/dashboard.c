@@ -169,16 +169,13 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     const int BAR_H     = 18;
     const int ROW_PAD   = 44;
 
-    // Compute bar max from this repo's own values (relative comparison)
-    uint32_t max_v = (r->views  > r->clones) ? r->views  : r->clones;
-    if (max_v == 0) max_v = 1;
-
     char numstr[24];
     char uniqstr[32];
 
     // -- Views row --
     font_puts_scaled(PAD, y, "Views", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
-    draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->views, r->view_uniques, max_v,
+    draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->views, r->view_uniques,
+                   r->views ? r->views : 1,
                    C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
 
     y += BAR_H + 6;
@@ -209,7 +206,8 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 
     // -- Clones row --
     font_puts_scaled(PAD, y, "Clones", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
-    draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->clones, r->clone_uniques, max_v,
+    draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->clones, r->clone_uniques,
+                   r->clones ? r->clones : 1,
                    C_CLONES_R, C_CLONES_G, C_CLONES_B);
 
     y += BAR_H + 6;
