@@ -1,0 +1,3 @@
+[submodule "sim/screencap"]
+	path = sim/screencap
+	url = ssh://git@piserver:222/dmatking/esp32-screencap.git
