@@ -14,6 +14,7 @@ The device fetches your GitHub repository traffic stats (views, unique visitors,
 - Per-repo screens: views and clone bars with unique counts, stars/forks, description
 - Green `+` indicator when stats have increased since the last fetch
 - Ticker bar showing all repo names at the bottom of each screen
+- BOOT button advances to the next screen immediately
 - Daily refresh at a configurable local time (default: 6:00 AM)
 - NTP time sync with configurable timezone (POSIX TZ string, DST-aware)
 - Configurable screen cycle interval (default: 30 seconds)

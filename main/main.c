@@ -11,11 +11,45 @@
 #include "esp_netif_sntp.h"
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "driver/gpio.h"
 
 #include "board_interface.h"
 #include "wifi.h"
 #include "github_api.h"
 #include "dashboard.h"
+
+#define BOOT_BUTTON_GPIO  35   // ESP32-P4 BOOT/STRAPPING pin, active-low
+
+static void button_init(void)
+{
+    gpio_config_t cfg = {
+        .pin_bit_mask = 1ULL << BOOT_BUTTON_GPIO,
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&cfg);
+}
+
+// Wait up to timeout_ms, but return early if BOOT button pressed.
+// Returns true if button triggered early advance.
+static bool wait_or_button(int timeout_ms)
+{
+    const int POLL_MS = 50;
+    bool was_pressed = false;
+    for (int elapsed = 0; elapsed < timeout_ms; elapsed += POLL_MS) {
+        vTaskDelay(pdMS_TO_TICKS(POLL_MS));
+        if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
+            // Debounce: wait for release
+            while (gpio_get_level(BOOT_BUTTON_GPIO) == 0)
+                vTaskDelay(pdMS_TO_TICKS(20));
+            was_pressed = true;
+            break;
+        }
+    }
+    return was_pressed;
+}
 
 #define NVS_NAMESPACE "dashboard"
 #define NVS_STATS_KEY "gh_stats"
@@ -89,6 +123,7 @@ void app_main(void)
     ESP_LOGI(TAG, "app_main start");
 
     board_init();
+    button_init();
 
     dashboard_draw_fetching();
 
@@ -144,7 +179,7 @@ void app_main(void)
             dashboard_draw_repo(&stats, screen_idx);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(CYCLE_MS));
+        wait_or_button(CYCLE_MS);
 
         screen_idx++;
         if (screen_idx >= stats.count) screen_idx = -1;

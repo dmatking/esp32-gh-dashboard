@@ -276,65 +276,98 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
     y += 24;
 
+    // Tally total stars across all repos
+    int total_stars = 0;
+    for (int i = 0; i < stats->count; i++) total_stars += stats->repos[i].stars;
+
     char buf[64];
     snprintf(buf, sizeof(buf), "Repos tracked:   %d", stats->count);
     font_puts_scaled(PAD, y, buf, C_LABEL_R + 0x30, C_LABEL_G + 0x30, C_LABEL_B + 0x30, 2);
     y += FONT_H * 2 + 16;
 
+    const int BAR_X   = PAD + 14 * FONT_W * 2;  // aligns with "Total clones:" label width
+    const int BAR_W   = W - BAR_X - PAD;
+    const int BAR_H   = 28;
+    const int ROW_PAD = 24;
+
+    // -- Total views row --
     font_puts_scaled(PAD, y, "Total views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
+    draw_bar_split(BAR_X, y + 4, BAR_W, BAR_H,
+                   stats->total_views, stats->total_view_uniques,
+                   stats->total_views ? stats->total_views : 1,
+                   C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
+    y += BAR_H + 8;
     {
         char n[16], u[16], d[16], ud[16];
         snfmt_count(n, sizeof(n), stats->total_views);
         snfmt_count(u, sizeof(u), stats->total_view_uniques);
-        int cx = PAD + 14 * FONT_W * 2;
-        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
-        cx += strlen(n) * FONT_W * 2;
+        int cx = BAR_X;
+        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
+        cx += strlen(n) * FONT_W * 3;
         if (stats->total_views_delta) {
             snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_views_delta);
-            font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
-            cx += strlen(d) * FONT_W * 2;
+            font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 3);
+            cx += strlen(d) * FONT_W * 3;
         }
-        font_puts_scaled(cx, y, "  (", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
-        cx += 3 * FONT_W * 2;
-        font_puts_scaled(cx, y, u, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 3);
+        cx += 2 * FONT_W * 3;
+        font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
         cx += strlen(u) * FONT_W * 2;
         if (stats->total_view_uniques_delta) {
             snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)stats->total_view_uniques_delta);
             font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
             cx += strlen(ud) * FONT_W * 2;
         }
-        font_puts_scaled(cx, y, " unique)", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        font_puts_scaled(cx, y, " unique", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     }
-    y += FONT_H * 2 + 16;
+    y += FONT_H * 3 + ROW_PAD;
 
+    // -- Total clones row --
     font_puts_scaled(PAD, y, "Total clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
+    draw_bar_split(BAR_X, y + 4, BAR_W, BAR_H,
+                   stats->total_clones, stats->total_clone_uniques,
+                   stats->total_clones ? stats->total_clones : 1,
+                   C_CLONES_R, C_CLONES_G, C_CLONES_B);
+    y += BAR_H + 8;
     {
         char n[16], u[16], d[16], ud[16];
         snfmt_count(n, sizeof(n), stats->total_clones);
         snfmt_count(u, sizeof(u), stats->total_clone_uniques);
-        int cx = PAD + 14 * FONT_W * 2;
-        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
-        cx += strlen(n) * FONT_W * 2;
+        int cx = BAR_X;
+        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
+        cx += strlen(n) * FONT_W * 3;
         if (stats->total_clones_delta) {
             snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_clones_delta);
-            font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
-            cx += strlen(d) * FONT_W * 2;
+            font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 3);
+            cx += strlen(d) * FONT_W * 3;
         }
-        font_puts_scaled(cx, y, "  (", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
-        cx += 3 * FONT_W * 2;
-        font_puts_scaled(cx, y, u, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 3);
+        cx += 2 * FONT_W * 3;
+        font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
         cx += strlen(u) * FONT_W * 2;
         if (stats->total_clone_uniques_delta) {
             snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)stats->total_clone_uniques_delta);
             font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 2);
             cx += strlen(ud) * FONT_W * 2;
         }
-        font_puts_scaled(cx, y, " unique)", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        font_puts_scaled(cx, y, " unique", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     }
-    y += FONT_H * 2 + 40;
+    y += FONT_H * 3 + ROW_PAD;
+
+    // -- Total stars row --
+    font_puts_scaled(PAD, y, "Total stars:", C_STARS_R, C_STARS_G, C_STARS_B, 2);
+    {
+        char n[16];
+        snfmt_count(n, sizeof(n), total_stars);
+        int cx = BAR_X;
+        font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
+        cx += strlen(n) * FONT_W * 3;
+        font_puts_scaled(cx, y + FONT_H, " across all repos", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    }
+    y += FONT_H * 3 + 24;
 
     draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
-    y += 24;
+    y += 20;
 
     font_puts_scaled(PAD, y, "last 14 days  |  cycling in 30s",
                      C_DIM_R + 0x22, C_DIM_G + 0x22, C_DIM_B + 0x22, 2);
