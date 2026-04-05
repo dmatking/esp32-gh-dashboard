@@ -66,6 +66,25 @@ static void draw_bar(int x, int y, int w, int h,
     fill_rect(x + filled, y, w - filled, h, C_DIM_R, C_DIM_G, C_DIM_B);
 }
 
+// Two-segment bar: total in dim color, unique portion overlaid in bright color.
+// Unique segment shown first (left), non-unique in mid tone, rest dark.
+static void draw_bar_split(int x, int y, int w, int h,
+                           uint32_t total, uint32_t unique, uint32_t max_value,
+                           uint8_t fr, uint8_t fg, uint8_t fb)
+{
+    if (max_value == 0) max_value = 1;
+    int total_px  = (int)((uint64_t)total  * w / max_value);
+    int unique_px = (int)((uint64_t)unique * w / max_value);
+    if (unique_px > total_px) unique_px = total_px;
+
+    // Unique: bright color
+    fill_rect(x, y, unique_px, h, fr, fg, fb);
+    // Non-unique remainder of total: dim version of the color
+    fill_rect(x + unique_px, y, total_px - unique_px, h, fr / 3, fg / 3, fb / 3);
+    // Empty (beyond total): background dim
+    fill_rect(x + total_px, y, w - total_px, h, C_DIM_R, C_DIM_G, C_DIM_B);
+}
+
 static void draw_hline(int x, int y, int w,
                        uint8_t r, uint8_t g, uint8_t b)
 {
@@ -159,8 +178,8 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 
     // -- Views row --
     font_puts_scaled(PAD, y, "Views", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
-    draw_bar(BAR_X, y + 2, BAR_W, BAR_H, r->views, max_v,
-             C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
+    draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->views, r->view_uniques, max_v,
+                   C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
 
     y += BAR_H + 6;
     {
@@ -190,8 +209,8 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 
     // -- Clones row --
     font_puts_scaled(PAD, y, "Clones", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
-    draw_bar(BAR_X, y + 2, BAR_W, BAR_H, r->clones, max_v,
-             C_CLONES_R, C_CLONES_G, C_CLONES_B);
+    draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->clones, r->clone_uniques, max_v,
+                   C_CLONES_R, C_CLONES_G, C_CLONES_B);
 
     y += BAR_H + 6;
     {
