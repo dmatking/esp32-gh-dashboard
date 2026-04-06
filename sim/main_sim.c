@@ -34,8 +34,8 @@ static const gh_stats_t STATS = {
             .views = 45, .view_uniques = 6,
             .clones = 83, .clone_uniques = 46,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 45, .view_uniques_delta = 6,
-            .clones_delta = 83, .clone_uniques_delta = 46,
+            .views_delta = 0, .view_uniques_delta = 0,
+            .clones_delta = 0, .clone_uniques_delta = 0,
         },
         {
             .name             = "esp32-idf-new",
@@ -44,8 +44,8 @@ static const gh_stats_t STATS = {
             .views = 59, .view_uniques = 1,
             .clones = 68, .clone_uniques = 31,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 59, .view_uniques_delta = 1,
-            .clones_delta = 68, .clone_uniques_delta = 31,
+            .views_delta = 0, .view_uniques_delta = 0,
+            .clones_delta = 0, .clone_uniques_delta = 0,
         },
         {
             .name             = "esp32-video-stream",
@@ -54,8 +54,8 @@ static const gh_stats_t STATS = {
             .views = 25, .view_uniques = 2,
             .clones = 92, .clone_uniques = 64,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 25, .view_uniques_delta = 2,
-            .clones_delta = 92, .clone_uniques_delta = 64,
+            .views_delta = 0, .view_uniques_delta = 0,
+            .clones_delta = 0, .clone_uniques_delta = 0,
         },
         {
             .name             = "esp32-p4-webradio",
@@ -64,8 +64,8 @@ static const gh_stats_t STATS = {
             .views = 30, .view_uniques = 1,
             .clones = 68, .clone_uniques = 33,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 30, .view_uniques_delta = 1,
-            .clones_delta = 68, .clone_uniques_delta = 33,
+            .views_delta = 0, .view_uniques_delta = 0,
+            .clones_delta = 0, .clone_uniques_delta = 0,
         },
         {
             .name             = "esp32-gh-dashboard",
@@ -74,8 +74,8 @@ static const gh_stats_t STATS = {
             .views = 22, .view_uniques = 1,
             .clones = 62, .clone_uniques = 45,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 22, .view_uniques_delta = 1,
-            .clones_delta = 62, .clone_uniques_delta = 45,
+            .views_delta = 0, .view_uniques_delta = 0,
+            .clones_delta = 0, .clone_uniques_delta = 0,
         },
         {
             .name             = "esp32-p4-demos",
@@ -84,18 +84,18 @@ static const gh_stats_t STATS = {
             .views = 14, .view_uniques = 4,
             .clones = 60, .clone_uniques = 43,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 14, .view_uniques_delta = 4,
-            .clones_delta = 60, .clone_uniques_delta = 43,
+            .views_delta = 0, .view_uniques_delta = 0,
+            .clones_delta = 0, .clone_uniques_delta = 0,
         },
     },
     .total_views              = 195,   // 45+59+25+30+22+14
     .total_view_uniques       = 15,    //  6+ 1+ 2+ 1+ 1+ 4
     .total_clones             = 433,   // 83+68+92+68+62+60
     .total_clone_uniques      = 262,   // 46+31+64+33+45+43
-    .total_views_delta        = 195,
-    .total_view_uniques_delta = 15,
-    .total_clones_delta       = 433,
-    .total_clone_uniques_delta= 262,
+    .total_views_delta        = 0,
+    .total_view_uniques_delta = 0,
+    .total_clones_delta       = 0,
+    .total_clone_uniques_delta= 0,
 };
 
 int main(int argc, char **argv)
