@@ -236,27 +236,6 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     }
     y += FONT_H * 2 + ROW_PAD;
 
-    draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
-    y += 16;
-
-    // -- 14-day note --
-    font_puts_scaled(PAD, y, "last 14 days", C_DIM_R + 0x22, C_DIM_G + 0x22, C_DIM_B + 0x22, 2);
-
-    // -- Ticker bar at bottom: all repo names scrolling --
-    // Static for now — show all names in a row at the bottom
-    const int TICKER_Y = H - 36;
-    fill_rect(0, TICKER_Y - 4, W, 2, 0x33, 0x33, 0x55);
-    int tx = PAD;
-    for (int i = 0; i < stats->count && tx < W - PAD; i++) {
-        uint8_t tr = C_LABEL_R, tg = C_LABEL_G, tb = C_LABEL_B;
-        if (i == idx) { tr = C_TITLE_R; tg = C_TITLE_G; tb = C_TITLE_B; }
-        font_puts_scaled(tx, TICKER_Y, stats->repos[i].name, tr, tg, tb, 1);
-        tx += strlen(stats->repos[i].name) * FONT_W + 16;
-        if (i < stats->count - 1 && tx < W - PAD) {
-            font_puts_scaled(tx - 10, TICKER_Y, "|", C_DIM_R + 0x22, C_DIM_G + 0x22, C_DIM_B + 0x22, 1);
-        }
-    }
-
     board_lcd_flush();
 }
 
@@ -365,12 +344,6 @@ void dashboard_draw_summary(const gh_stats_t *stats)
         font_puts_scaled(cx, y + FONT_H, " across all repos", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     }
     y += FONT_H * 3 + 24;
-
-    draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
-    y += 20;
-
-    font_puts_scaled(PAD, y, "last 14 days  |  cycling in 30s",
-                     C_DIM_R + 0x22, C_DIM_G + 0x22, C_DIM_B + 0x22, 2);
 
     board_lcd_flush();
 }

@@ -1,7 +1,7 @@
 // Copyright 2026 David M. King
 // SPDX-License-Identifier: MIT
 //
-// GitHub API client — fetches pinned repos via GraphQL, traffic via CSV.
+// GitHub API client — fetches all user repos via GraphQL, traffic via CSV.
 
 #include "github_api.h"
 #include "traffic_csv.h"
@@ -48,7 +48,7 @@ static void sanitize_desc(char *s)
 }
 
 #define GH_GRAPHQL_URL "https://api.github.com/graphql"
-#define BUF_SIZE       4096
+#define BUF_SIZE       12288
 
 typedef struct { char *data; int len; int cap; } http_buf_t;
 
@@ -125,12 +125,13 @@ bool github_fetch_stats(gh_stats_t *stats)
 
     memset(stats, 0, sizeof(*stats));
 
-    // 1. Fetch pinned repos via GraphQL (names, descriptions, stars, forks)
+    // 1. Fetch all user repos via GraphQL (names, descriptions, stars, forks)
     char gql[512];
     snprintf(gql, sizeof(gql),
-        "{\"query\":\"{user(login:\\\"%s\\\"){pinnedItems(first:6,types:REPOSITORY)"
-        "{nodes{...on Repository{name description stargazerCount forkCount isPrivate}}}}}\"}",
-        CONFIG_GH_USERNAME);
+        "{\"query\":\"{user(login:\\\"%s\\\"){repositories(first:%d,ownerAffiliations:OWNER,"
+        "orderBy:{field:PUSHED_AT,direction:DESC})"
+        "{nodes{name description stargazerCount forkCount isPrivate}}}}\"}",
+        CONFIG_GH_USERNAME, GH_MAX_REPOS);
 
     if (!gh_graphql(gql, buf, BUF_SIZE)) {
         free(buf);
@@ -140,20 +141,20 @@ bool github_fetch_stats(gh_stats_t *stats)
     cJSON *root  = cJSON_Parse(buf);
     cJSON *nodes = NULL;
     if (root) {
-        cJSON *data = cJSON_GetObjectItemCaseSensitive(root, "data");
-        cJSON *user = data ? cJSON_GetObjectItemCaseSensitive(data, "user")        : NULL;
-        cJSON *pins = user ? cJSON_GetObjectItemCaseSensitive(user, "pinnedItems") : NULL;
-        nodes       = pins ? cJSON_GetObjectItemCaseSensitive(pins, "nodes")       : NULL;
+        cJSON *data  = cJSON_GetObjectItemCaseSensitive(root, "data");
+        cJSON *user  = data ? cJSON_GetObjectItemCaseSensitive(data, "user")         : NULL;
+        cJSON *repos = user ? cJSON_GetObjectItemCaseSensitive(user, "repositories") : NULL;
+        nodes        = repos ? cJSON_GetObjectItemCaseSensitive(repos, "nodes")      : NULL;
     }
 
     if (!nodes || !cJSON_IsArray(nodes)) {
-        ESP_LOGE(TAG, "Failed to parse pinned repos: %.200s", buf);
+        ESP_LOGE(TAG, "Failed to parse repos: %.200s", buf);
         cJSON_Delete(root);
         free(buf);
         return false;
     }
 
-    // Collect pinned repo names and metadata
+    // Collect repo names and metadata
     int count = 0;
     cJSON *node;
     cJSON_ArrayForEach(node, nodes) {
@@ -178,7 +179,7 @@ bool github_fetch_stats(gh_stats_t *stats)
         return true;  // partial success: metadata ok, traffic zeroed
     }
 
-    // 3. Populate each pinned repo from CSV and compute day-over-day deltas
+    // 3. Populate each repo from CSV and compute day-over-day deltas
     for (int i = 0; i < stats->count; i++) {
         gh_repo_t *r = &stats->repos[i];
 
@@ -216,7 +217,7 @@ bool github_fetch_stats(gh_stats_t *stats)
         stats->total_clone_uniques_delta += r->clone_uniques_delta;
     }
 
-    ESP_LOGI(TAG, "Fetched %d pinned repos from CSV — newest=%s prev=%s",
+    ESP_LOGI(TAG, "Fetched %d repos — newest=%s prev=%s",
              count, csv.newest_date, csv.prev_date[0] ? csv.prev_date : "(none)");
     return true;
 }

@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include "github_api.h"
 
-#define CSV_MAX_ROWS 64   // 2 dates × up to 32 repos
+#define CSV_MAX_ROWS 128  // 2 dates × up to 64 repos
 
 typedef struct {
     char     date[12];               // "YYYY-MM-DD"

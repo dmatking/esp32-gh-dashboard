@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define GH_MAX_REPOS     6   // GitHub allows at most 6 pinned repos
+#define GH_MAX_REPOS     32  // max repos to display
 #define GH_REPO_NAME_LEN 48
 #define GH_DESC_LEN      128
 
@@ -40,6 +40,6 @@ typedef struct {
     uint32_t  total_clone_uniques_delta;
 } gh_stats_t;
 
-// Fetch pinned repo metadata via GraphQL, traffic via CSV.
+// Fetch all user repos via GraphQL, traffic via CSV.
 // Deltas are computed day-over-day from latest.csv (no prev needed).
 bool github_fetch_stats(gh_stats_t *stats);
