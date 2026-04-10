@@ -172,40 +172,63 @@ bool github_fetch_stats(gh_stats_t *stats)
     cJSON_Delete(root);
     free(buf);
 
-    // 2. Fetch traffic CSV (one request for all repos)
-    static csv_data_t csv;   // static to avoid stack pressure
+    // 2. Fetch latest.csv (daily counts, last 2 dates) for day-over-day deltas
+    static csv_data_t    csv;     // static to avoid stack pressure
+    static totals_data_t totals;
+
     if (!traffic_csv_fetch(&csv)) {
-        ESP_LOGW(TAG, "CSV fetch failed — traffic data unavailable");
+        ESP_LOGW(TAG, "latest.csv fetch failed — traffic data unavailable");
         return true;  // partial success: metadata ok, traffic zeroed
     }
 
-    // 3. Populate each repo from CSV and compute day-over-day deltas
+    // 3. Fetch totals.csv (cumulative all-time sums)
+    bool have_totals = traffic_totals_fetch(&totals);
+    if (!have_totals)
+        ESP_LOGW(TAG, "totals.csv fetch failed — showing daily counts as totals");
+
+    // 4. Populate each repo: totals from totals.csv, deltas from daily counts
     for (int i = 0; i < stats->count; i++) {
         gh_repo_t *r = &stats->repos[i];
 
-        const csv_row_t *today = traffic_csv_find(&csv, csv.newest_date, r->name);
-        const csv_row_t *prev  = csv.prev_date[0]
-                                 ? traffic_csv_find(&csv, csv.prev_date, r->name)
-                                 : NULL;
+        const csv_row_t    *today  = traffic_csv_find(&csv, csv.newest_date, r->name);
+        const csv_row_t    *prev   = csv.prev_date[0]
+                                     ? traffic_csv_find(&csv, csv.prev_date, r->name)
+                                     : NULL;
+        const totals_row_t *totrow = have_totals
+                                     ? traffic_totals_find(&totals, r->name)
+                                     : NULL;
 
-        if (today) {
-            r->views        = today->views;
-            r->view_uniques = today->view_uniques;
-            r->clones       = today->clones;
+        // Cumulative totals (all-time)
+        if (totrow) {
+            r->views         = totrow->views;
+            r->view_uniques  = totrow->view_uniques;
+            r->clones        = totrow->clones;
+            r->clone_uniques = totrow->clone_uniques;
+            if (totrow->stars > r->stars) r->stars = totrow->stars;
+            if (totrow->forks > r->forks) r->forks = totrow->forks;
+        } else if (today) {
+            // Fallback: use today's daily count if no totals available
+            r->views         = today->views;
+            r->view_uniques  = today->view_uniques;
+            r->clones        = today->clones;
             r->clone_uniques = today->clone_uniques;
-            // stars/forks from CSV may be more current than GraphQL cache
-            if (today->stars > r->stars) r->stars = today->stars;
-            if (today->forks > r->forks) r->forks = today->forks;
         }
 
+        // Day-over-day delta from actual daily counts
         if (today && prev) {
-            r->views_delta        = (today->views        > prev->views)        ? today->views        - prev->views        : 0;
-            r->view_uniques_delta = (today->view_uniques > prev->view_uniques) ? today->view_uniques - prev->view_uniques : 0;
-            r->clones_delta       = (today->clones       > prev->clones)       ? today->clones       - prev->clones       : 0;
-            r->clone_uniques_delta = (today->clone_uniques > prev->clone_uniques) ? today->clone_uniques - prev->clone_uniques : 0;
-            r->views_changed  = (r->views_delta  > 0);
-            r->clones_changed = (r->clones_delta > 0);
+            r->views_delta         = today->views        > prev->views        ? today->views        - prev->views        : 0;
+            r->view_uniques_delta  = today->view_uniques > prev->view_uniques ? today->view_uniques - prev->view_uniques : 0;
+            r->clones_delta        = today->clones       > prev->clones       ? today->clones       - prev->clones       : 0;
+            r->clone_uniques_delta = today->clone_uniques > prev->clone_uniques ? today->clone_uniques - prev->clone_uniques : 0;
+        } else if (today) {
+            // Only one date available — show today's count as delta
+            r->views_delta         = today->views;
+            r->view_uniques_delta  = today->view_uniques;
+            r->clones_delta        = today->clones;
+            r->clone_uniques_delta = today->clone_uniques;
         }
+        r->views_changed  = (r->views_delta  > 0);
+        r->clones_changed = (r->clones_delta > 0);
 
         stats->total_views               += r->views;
         stats->total_view_uniques        += r->view_uniques;
@@ -217,7 +240,9 @@ bool github_fetch_stats(gh_stats_t *stats)
         stats->total_clone_uniques_delta += r->clone_uniques_delta;
     }
 
-    ESP_LOGI(TAG, "Fetched %d repos — newest=%s prev=%s",
-             count, csv.newest_date, csv.prev_date[0] ? csv.prev_date : "(none)");
+    ESP_LOGI(TAG, "Fetched %d repos — newest=%s prev=%s totals=%s",
+             count, csv.newest_date,
+             csv.prev_date[0] ? csv.prev_date : "(none)",
+             have_totals ? "ok" : "unavailable");
     return true;
 }
