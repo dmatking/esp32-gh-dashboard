@@ -36,6 +36,8 @@ static const gh_stats_t STATS = {
             .views_changed = true, .clones_changed = true,
             .views_delta = 0, .view_uniques_delta = 0,
             .clones_delta = 0, .clone_uniques_delta = 0,
+            .history_views  = {0,1,2,1,3,2,4,3,2,5,3,4,6,5},
+            .history_clones = {2,3,4,5,3,6,4,7,5,8,6,9,7,10},
         },
         {
             .name             = "esp32-idf-new",
@@ -46,6 +48,8 @@ static const gh_stats_t STATS = {
             .views_changed = true, .clones_changed = true,
             .views_delta = 0, .view_uniques_delta = 0,
             .clones_delta = 0, .clone_uniques_delta = 0,
+            .history_views  = {3,2,5,4,6,3,7,5,4,8,6,5,9,7},
+            .history_clones = {4,5,3,6,4,5,7,4,6,5,8,6,7,9},
         },
         {
             .name             = "esp32-video-stream",
@@ -56,6 +60,8 @@ static const gh_stats_t STATS = {
             .views_changed = true, .clones_changed = true,
             .views_delta = 0, .view_uniques_delta = 0,
             .clones_delta = 0, .clone_uniques_delta = 0,
+            .history_views  = {1,0,2,1,0,3,1,2,0,1,3,2,1,2},
+            .history_clones = {5,7,6,8,5,9,6,10,7,11,8,12,9,13},
         },
         {
             .name             = "esp32-p4-webradio",
@@ -66,6 +72,8 @@ static const gh_stats_t STATS = {
             .views_changed = true, .clones_changed = true,
             .views_delta = 0, .view_uniques_delta = 0,
             .clones_delta = 0, .clone_uniques_delta = 0,
+            .history_views  = {2,3,1,4,2,3,5,2,4,3,6,4,5,7},
+            .history_clones = {3,4,3,5,4,5,4,6,5,4,6,5,7,6},
         },
         {
             .name             = "esp32-gh-dashboard",
@@ -76,6 +84,8 @@ static const gh_stats_t STATS = {
             .views_changed = true, .clones_changed = true,
             .views_delta = 0, .view_uniques_delta = 0,
             .clones_delta = 0, .clone_uniques_delta = 0,
+            .history_views  = {1,1,2,1,3,2,1,4,2,3,5,3,4,6},
+            .history_clones = {3,4,5,4,6,5,7,5,8,6,9,7,10,8},
         },
         {
             .name             = "esp32-p4-demos",
@@ -86,6 +96,8 @@ static const gh_stats_t STATS = {
             .views_changed = true, .clones_changed = true,
             .views_delta = 0, .view_uniques_delta = 0,
             .clones_delta = 0, .clone_uniques_delta = 0,
+            .history_views  = {4,3,5,4,6,5,4,7,5,6,8,6,7,9},
+            .history_clones = {4,5,4,6,5,6,5,7,6,5,7,6,8,7},
         },
     },
     .total_views              = 195,   // 45+59+25+30+22+14
@@ -96,6 +108,9 @@ static const gh_stats_t STATS = {
     .total_view_uniques_delta = 0,
     .total_clones_delta       = 0,
     .total_clone_uniques_delta= 0,
+    // daily totals across all 6 repos (sum of per-repo history above)
+    .history_total_views  = {11,10,17,15,20,15,21,21,17,26,31,24,32,36},
+    .history_total_clones = {21,28,25,34,27,36,33,39,37,39,44,45,48,53},
 };
 
 int main(int argc, char **argv)

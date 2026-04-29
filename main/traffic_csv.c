@@ -250,3 +250,129 @@ const totals_row_t *traffic_totals_find(const totals_data_t *data,
     }
     return NULL;
 }
+
+// ---------------------------------------------------------------------------
+// traffic.csv — full daily history, one row per (date, repo)
+// ---------------------------------------------------------------------------
+
+#define HISTORY_URL      "https://raw.githubusercontent.com/" \
+                         CONFIG_GH_USERNAME "/github-traffic-log/main/traffic.csv"
+#define HISTORY_BUF_SIZE 32768
+#define MAX_HIST_DATES   64   // scratch for date collection before truncating to 14
+
+static int cmp_date_desc(const void *a, const void *b)
+{
+    return strcmp((const char *)b, (const char *)a);
+}
+
+bool traffic_history_fetch(gh_stats_t *stats)
+{
+    char *buf = malloc(HISTORY_BUF_SIZE);
+    if (!buf) return false;
+
+    http_buf_t hbuf = { .data = buf, .len = 0, .cap = HISTORY_BUF_SIZE };
+    buf[0] = '\0';
+
+    esp_http_client_config_t cfg = {
+        .url               = HISTORY_URL,
+        .event_handler     = http_event_cb,
+        .user_data         = &hbuf,
+        .transport_type    = HTTP_TRANSPORT_OVER_SSL,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .timeout_ms        = 15000,
+        .buffer_size       = 4096,
+        .buffer_size_tx    = 512,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&cfg);
+    esp_http_client_set_header(client, "User-Agent", "esp32-gh-dashboard");
+
+    esp_err_t err = esp_http_client_perform(client);
+    int status    = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+
+    if (err != ESP_OK || status != 200) {
+        ESP_LOGW(TAG, "traffic.csv fetch failed: err=%d status=%d", err, status);
+        free(buf);
+        return false;
+    }
+
+    // Pass 1 (read-only): collect all unique dates seen in the file.
+    char all_dates[MAX_HIST_DATES][12];
+    int  ndate = 0;
+    {
+        const char *p = buf;
+        bool hdr = true;
+        while (*p) {
+            const char *nl  = strchr(p, '\n');
+            const char *eol = nl ? nl : p + strlen(p);
+            if (!hdr) {
+                const char *comma = (const char *)memchr(p, ',', eol - p);
+                if (comma && (comma - p) == 10) {
+                    char d[11];
+                    memcpy(d, p, 10);
+                    d[10] = '\0';
+                    bool found = false;
+                    for (int i = 0; i < ndate; i++)
+                        if (strncmp(all_dates[i], d, 10) == 0) { found = true; break; }
+                    if (!found && ndate < MAX_HIST_DATES)
+                        memcpy(all_dates[ndate++], d, 11);
+                }
+            }
+            hdr = false;
+            if (!nl) break;
+            p = nl + 1;
+        }
+    }
+
+    if (ndate == 0) {
+        free(buf);
+        return false;
+    }
+
+    // Sort descending (newest first), keep at most HISTORY_DAYS.
+    qsort(all_dates, ndate, sizeof(all_dates[0]), cmp_date_desc);
+    int nslots = (ndate < HISTORY_DAYS) ? ndate : HISTORY_DAYS;
+    // Slot mapping: all_dates[0]=newest → slot (nslots-1),  all_dates[nslots-1]=oldest → slot 0
+
+    // Pass 2 (modifies buf): parse rows and fill history arrays.
+    char *line = buf;
+    bool header = true;
+    while (line && *line) {
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = '\0';
+        int len = strlen(line);
+        if (len > 0 && line[len - 1] == '\r') line[len - 1] = '\0';
+
+        if (!header && line[0]) {
+            csv_row_t row = {0};
+            if (parse_line(line, &row)) {
+                // Map date → slot index
+                int slot = -1;
+                for (int d = 0; d < nslots; d++) {
+                    if (strcmp(all_dates[d], row.date) == 0) {
+                        slot = (nslots - 1) - d;
+                        break;
+                    }
+                }
+                if (slot >= 0) {
+                    for (int i = 0; i < stats->count; i++) {
+                        if (strcmp(stats->repos[i].name, row.repo) == 0) {
+                            stats->repos[i].history_views [slot] += row.views;
+                            stats->repos[i].history_clones[slot] += row.clones;
+                            stats->history_total_views [slot] += row.views;
+                            stats->history_total_clones[slot] += row.clones;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        header = false;
+        if (!nl) break;
+        line = nl + 1;
+    }
+
+    free(buf);
+    ESP_LOGI(TAG, "history: %d dates, %d slots filled", ndate, nslots);
+    return true;
+}

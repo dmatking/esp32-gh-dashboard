@@ -63,3 +63,12 @@ bool traffic_totals_fetch(totals_data_t *out);
 // Find the totals row for a given repo name.  Returns NULL if not found.
 const totals_row_t *traffic_totals_find(const totals_data_t *data,
                                         const char *repo);
+
+// --- traffic.csv (full daily history) ---
+
+// Fetch traffic.csv and populate the history_views[] / history_clones[] arrays
+// on each repo in stats, plus history_total_views[] / history_total_clones[]
+// on the stats struct itself.  The last HISTORY_DAYS distinct dates are kept,
+// with slot 0 = oldest and slot HISTORY_DAYS-1 = newest.
+// Returns true on success.
+bool traffic_history_fetch(gh_stats_t *stats);

@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // --- Palette ---
 #define C_BG_R   0x0A
@@ -89,6 +90,88 @@ static void draw_hline(int x, int y, int w,
                        uint8_t r, uint8_t g, uint8_t b)
 {
     fill_rect(x, y, w, 1, r, g, b);
+}
+
+static void draw_line(int x0, int y0, int x1, int y1,
+                      uint8_t r, uint8_t g, uint8_t b)
+{
+    int dx =  abs(x1 - x0);
+    int dy = -abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    while (1) {
+        if (x0 >= 0 && x0 < W && y0 >= 0 && y0 < H)
+            board_lcd_set_pixel_rgb(x0, y0, r, g, b);
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+// Draw a two-series line graph (views=a, clones=b) with linear trend lines.
+// gx,gy = top-left of plot area; gw,gh = width/height of plot area.
+// Trend drawn first (half-brightness), data lines on top.
+static void draw_mini_graph(int gx, int gy, int gw, int gh,
+                            const uint32_t *vals_a, uint8_t ar, uint8_t ag, uint8_t ab,
+                            const uint32_t *vals_b, uint8_t br, uint8_t bg, uint8_t bb,
+                            int n)
+{
+    if (n <= 0) return;
+
+    uint32_t max_val = 1;
+    for (int i = 0; i < n; i++) {
+        if (vals_a[i] > max_val) max_val = vals_a[i];
+        if (vals_b[i] > max_val) max_val = vals_b[i];
+    }
+
+    fill_rect(gx, gy, gw, gh + 1, C_BG_R, C_BG_G, C_BG_B);
+    draw_hline(gx, gy + gh, gw, 0x33, 0x33, 0x55);
+
+#define PY(v) (gy + gh - 1 - (int)((uint64_t)(v) * (uint32_t)(gh - 1) / max_val))
+#define PX(i) (gx + (n > 1 ? (i) * gw / (n - 1) : gw / 2))
+
+    // Trend lines first (dimmer), data lines on top
+    if (n >= 3) {
+        int64_t sum_x = 0, sum_ya = 0, sum_yb = 0, sum_xx = 0;
+        int64_t sum_xya = 0, sum_xyb = 0;
+        for (int i = 0; i < n; i++) {
+            sum_x   += i;
+            sum_ya  += vals_a[i];
+            sum_yb  += vals_b[i];
+            sum_xx  += (int64_t)i * i;
+            sum_xya += (int64_t)i * vals_a[i];
+            sum_xyb += (int64_t)i * vals_b[i];
+        }
+        int64_t denom  = (int64_t)n * sum_xx - sum_x * sum_x;
+        if (denom > 0) {
+            int64_t ndenom = (int64_t)n * denom;
+            int64_t sna = (int64_t)n * sum_xya - sum_x * sum_ya;
+            int64_t snb = (int64_t)n * sum_xyb - sum_x * sum_yb;
+            // y_hat at x=0 and x=n-1, using symmetric form:
+            // y_hat(0)   = (sum_y*denom - sn*sum_x) / ndenom
+            // y_hat(n-1) = (sum_y*denom + sn*sum_x) / ndenom
+            int64_t ta0 = (sum_ya * denom - sna * sum_x) / ndenom;
+            int64_t ta1 = (sum_ya * denom + sna * sum_x) / ndenom;
+            int64_t tb0 = (sum_yb * denom - snb * sum_x) / ndenom;
+            int64_t tb1 = (sum_yb * denom + snb * sum_x) / ndenom;
+#define CLAMP64(v) ((v) < 0 ? (int64_t)0 : (v) > (int64_t)max_val ? (int64_t)max_val : (v))
+            ta0 = CLAMP64(ta0); ta1 = CLAMP64(ta1);
+            tb0 = CLAMP64(tb0); tb1 = CLAMP64(tb1);
+#undef CLAMP64
+            draw_line(PX(0), PY(ta0), PX(n-1), PY(ta1), ar/2, ag/2, ab/2);
+            draw_line(PX(0), PY(tb0), PX(n-1), PY(tb1), br/2, bg/2, bb/2);
+        }
+    }
+
+    for (int i = 0; i + 1 < n; i++) {
+        draw_line(PX(i), PY(vals_a[i]), PX(i+1), PY(vals_a[i+1]), ar, ag, ab);
+        draw_line(PX(i), PY(vals_b[i]), PX(i+1), PY(vals_b[i+1]), br, bg, bb);
+    }
+
+#undef PY
+#undef PX
 }
 
 static void snfmt_count(char *buf, int buflen, uint32_t n)
@@ -236,6 +319,17 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     }
     y += FONT_H * 2 + ROW_PAD;
 
+    // 14-day history graph
+    {
+        const int GX = PAD, GY = 543, GW = W - PAD * 2, GH = 150;
+        draw_hline(GX, GY - 14, GW, 0x22, 0x22, 0x44);
+        font_puts_scaled(GX, GY - 12, "14d", C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
+        draw_mini_graph(GX, GY, GW, GH,
+                        r->history_views,  C_VIEWS_R,  C_VIEWS_G,  C_VIEWS_B,
+                        r->history_clones, C_CLONES_R, C_CLONES_G, C_CLONES_B,
+                        HISTORY_DAYS);
+    }
+
     board_lcd_flush();
 }
 
@@ -344,6 +438,17 @@ void dashboard_draw_summary(const gh_stats_t *stats)
         font_puts_scaled(cx, y + FONT_H, " across all repos", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     }
     y += FONT_H * 3 + 24;
+
+    // 14-day history graph
+    {
+        const int GX = PAD, GY = 543, GW = W - PAD * 2, GH = 150;
+        draw_hline(GX, GY - 14, GW, 0x22, 0x22, 0x44);
+        font_puts_scaled(GX, GY - 12, "14d", C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
+        draw_mini_graph(GX, GY, GW, GH,
+                        stats->history_total_views,  C_VIEWS_R,  C_VIEWS_G,  C_VIEWS_B,
+                        stats->history_total_clones, C_CLONES_R, C_CLONES_G, C_CLONES_B,
+                        HISTORY_DAYS);
+    }
 
     board_lcd_flush();
 }

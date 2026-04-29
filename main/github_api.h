@@ -8,6 +8,7 @@
 #define GH_MAX_REPOS     32  // max repos to display
 #define GH_REPO_NAME_LEN 48
 #define GH_DESC_LEN      128
+#define HISTORY_DAYS     14  // days of daily history kept per repo
 
 typedef struct {
     char     name[GH_REPO_NAME_LEN];
@@ -25,6 +26,8 @@ typedef struct {
     uint32_t view_uniques_delta;
     uint32_t clones_delta;
     uint32_t clone_uniques_delta;
+    uint32_t history_views [HISTORY_DAYS];  // daily counts, [0]=oldest [13]=newest
+    uint32_t history_clones[HISTORY_DAYS];
 } gh_repo_t;
 
 typedef struct {
@@ -38,6 +41,8 @@ typedef struct {
     uint32_t  total_view_uniques_delta;
     uint32_t  total_clones_delta;
     uint32_t  total_clone_uniques_delta;
+    uint32_t  history_total_views [HISTORY_DAYS];
+    uint32_t  history_total_clones[HISTORY_DAYS];
 } gh_stats_t;
 
 // Fetch all user repos via GraphQL, traffic via CSV.

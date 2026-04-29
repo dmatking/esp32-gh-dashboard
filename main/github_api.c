@@ -186,6 +186,10 @@ bool github_fetch_stats(gh_stats_t *stats)
     if (!have_totals)
         ESP_LOGW(TAG, "totals.csv fetch failed — showing daily counts as totals");
 
+    // 3b. Fetch traffic.csv (full daily history for the 14-day graph)
+    if (!traffic_history_fetch(stats))
+        ESP_LOGW(TAG, "traffic.csv fetch failed — history graph unavailable");
+
     // 4. Populate each repo: totals from totals.csv, deltas from daily counts
     for (int i = 0; i < stats->count; i++) {
         gh_repo_t *r = &stats->repos[i];
