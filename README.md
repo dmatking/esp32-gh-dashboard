@@ -6,7 +6,7 @@ A GitHub repository traffic dashboard running on the **Waveshare ESP32-P4-WIFI6-
 
 The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your repositories.
 
-<img title="" src="assets/screenshot.png" alt="Dashboard repo screen" width="480"><img title="" src="assets/screenshot2.png" alt="Dashboard repo screen" width="480">
+<img title="" src="assets/screenshot.png" alt="Dashboard repo screen" width="320"><img title="" src="assets/screenshot2.png" alt="Dashboard repo screen" width="320">
 
 ## Features
 
