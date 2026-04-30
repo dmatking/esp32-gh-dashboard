@@ -4,14 +4,16 @@ A GitHub repository traffic dashboard running on the **Waveshare ESP32-P4-WIFI6-
 
 > For chip-level notes on the P4+C6 combination (esp_hosted init, SDIO, PSRAM, errata, etc.) see [esp32-notes](https://github.com/dmatking/esp32-notes).
 
-The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your pinned repositories.
+The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your repositories.
 
 <img src="assets/screenshot.jpg" width="480" alt="Dashboard repo screen">
 
 ## Features
 
-- Summary screen: total views, clones, and stars across all pinned repos
+- Summary screen: total views, clones, and stars across all repos
 - Per-repo screens: split bars showing unique vs non-unique views and clones, stars/forks, description
+- 14-day traffic history graph (views and clones with trend lines) on every screen
+- 12-hour clock in the top-right corner of every screen
 - Green `(+N)` delta indicators showing day-over-day increases
 - BOOT button advances to the next screen immediately
 - Daily refresh at a configurable local time (default: 6:00 AM)
@@ -22,7 +24,7 @@ The device fetches your GitHub repository traffic stats (views, unique visitors,
 
 Traffic data is collected by a companion GitHub Action in [github-traffic-log](https://github.com/dmatking/github-traffic-log), which runs daily and appends stats to a CSV file. The dashboard fetches `latest.csv` (the last two days of data) on boot and at the configured refresh hour, computing true day-over-day deltas regardless of how long the device has been offline.
 
-Pinned repo names and descriptions are fetched via the GitHub GraphQL API. GitHub's traffic API only retains 14 days of history — the CSV log provides permanent accumulation beyond that window.
+Repo names and descriptions are fetched via the GitHub GraphQL API. GitHub's traffic API only retains 14 days of history — the CSV log provides permanent accumulation beyond that window.
 
 ## Hardware
 
@@ -36,7 +38,7 @@ Pinned repo names and descriptions are fetched via the GitHub GraphQL API. GitHu
 
 ## Requirements
 
-- [ESP-IDF](https://github.com/espressif/esp-idf) v5.3 or later (tested on v5.5.1)
+- [ESP-IDF](https://github.com/espressif/esp-idf) v5.5.3 or later
 - A GitHub [personal access token](https://github.com/settings/tokens) with `repo` scope
 - The [github-traffic-log](https://github.com/dmatking/github-traffic-log) companion repo set up and collecting data
 
@@ -109,7 +111,7 @@ main/
   board_waveshare_wvshr_p4_720_touch.c  Display init and pixel API
   board_interface.h                   Board abstraction (pixel, flush, dimensions)
   dashboard.c / .h                    Screen renderer
-  github_api.c / .h                   GraphQL client for pinned repo metadata
+  github_api.c / .h                   GraphQL client for repo metadata
   traffic_csv.c / .h                  CSV fetcher and parser for traffic data
   wifi.c / .h                         WiFi + esp_hosted init
   font8x16.c / .h                     Bitmap font renderer
