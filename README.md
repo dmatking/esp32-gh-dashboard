@@ -6,7 +6,7 @@ A GitHub repository traffic dashboard running on the **Waveshare ESP32-P4-WIFI6-
 
 The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your repositories.
 
-<img src="assets/screenshot.jpg" width="480" alt="Dashboard repo screen">
+<img title="" src="assets/screenshot.png" alt="Dashboard repo screen" width="480"><img title="" src="assets/screenshot2.png" alt="Dashboard repo screen" width="480">
 
 ## Features
 
@@ -28,13 +28,13 @@ Repo names and descriptions are fetched via the GitHub GraphQL API. GitHub's tra
 
 ## Hardware
 
-| Part | Details |
-|------|---------|
-| Board | Waveshare ESP32-P4-WIFI6-Touch-LCD-4B |
-| Display | 720×720 MIPI-DSI (ST7703 controller) |
-| WiFi | ESP32-C6 co-processor via SDIO |
-| Flash | 16 MB |
-| PSRAM | HEX mode, 200 MHz |
+| Part    | Details                               |
+| ------- | ------------------------------------- |
+| Board   | Waveshare ESP32-P4-WIFI6-Touch-LCD-4B |
+| Display | 720×720 MIPI-DSI (ST7703 controller)  |
+| WiFi    | ESP32-C6 co-processor via SDIO        |
+| Flash   | 16 MB                                 |
+| PSRAM   | HEX mode, 200 MHz                     |
 
 ## Requirements
 
@@ -73,12 +73,12 @@ CONFIG_GH_TOKEN="ghp_yourPersonalAccessToken"
 
 All other settings can be left at defaults or adjusted via `idf.py menuconfig` → **Dashboard Configuration**:
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `DASHBOARD_TIMEZONE` | `CST6CDT,M3.2.0,M11.1.0` | POSIX TZ string (US Central w/ DST) |
-| `DASHBOARD_REFRESH_HOUR` | `6` | Hour of day to re-fetch stats (local time) |
-| `DASHBOARD_CYCLE_SEC` | `30` | Seconds between screen transitions |
-| `GH_USERNAME` | `dmatking` | Your GitHub username |
+| Option                   | Default                  | Description                                |
+| ------------------------ | ------------------------ | ------------------------------------------ |
+| `DASHBOARD_TIMEZONE`     | `CST6CDT,M3.2.0,M11.1.0` | POSIX TZ string (US Central w/ DST)        |
+| `DASHBOARD_REFRESH_HOUR` | `6`                      | Hour of day to re-fetch stats (local time) |
+| `DASHBOARD_CYCLE_SEC`    | `30`                     | Seconds between screen transitions         |
+| `GH_USERNAME`            | `dmatking`               | Your GitHub username                       |
 
 Common timezone strings:
 
