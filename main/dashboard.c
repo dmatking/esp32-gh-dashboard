@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 // --- Palette ---
 #define C_BG_R   0x0A
@@ -193,10 +194,17 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     const int PAD = 40;
     int y = 30;
 
-    // -- Repo number badge (top-right small) --
-    char badge[16];
-    snprintf(badge, sizeof(badge), "%d/%d", idx + 1, stats->count);
-    font_puts_right(W - PAD, y + 4, badge, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    // -- Clock (top-right) --
+    {
+        time_t now = time(NULL);
+        struct tm t;
+        localtime_r(&now, &t);
+        int h12 = t.tm_hour % 12;
+        if (h12 == 0) h12 = 12;
+        char clock_str[8];
+        snprintf(clock_str, sizeof(clock_str), "%d:%02d", h12, t.tm_min);
+        font_puts_right(W - PAD, y + 4, clock_str, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    }
 
     // -- Repo name (large, scale 3) --
     font_puts_scaled(PAD, y, r->name, C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
@@ -342,6 +350,16 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     int y = 40;
 
     font_puts_scaled(PAD, y, "GitHub Stats", C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
+    {
+        time_t now = time(NULL);
+        struct tm t;
+        localtime_r(&now, &t);
+        int h12 = t.tm_hour % 12;
+        if (h12 == 0) h12 = 12;
+        char clock_str[8];
+        snprintf(clock_str, sizeof(clock_str), "%d:%02d", h12, t.tm_min);
+        font_puts_right(W - PAD, y + 4, clock_str, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    }
     y += FONT_H * 3 + 8;
     font_puts_scaled(PAD, y, "dmatking", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     y += FONT_H * 2 + 30;
