@@ -128,7 +128,7 @@ bool github_fetch_stats(gh_stats_t *stats)
     // 1. Fetch all user repos via GraphQL (names, descriptions, stars, forks)
     char gql[512];
     snprintf(gql, sizeof(gql),
-        "{\"query\":\"{user(login:\\\"%s\\\"){repositories(first:%d,ownerAffiliations:OWNER,"
+        "{\"query\":\"{user(login:\\\"%s\\\"){repositories(first:%d,ownerAffiliations:OWNER,isFork:false,"
         "orderBy:{field:PUSHED_AT,direction:DESC})"
         "{nodes{name description stargazerCount forkCount isPrivate}}}}\"}",
         CONFIG_GH_USERNAME, GH_MAX_REPOS);
@@ -218,18 +218,16 @@ bool github_fetch_stats(gh_stats_t *stats)
             r->clone_uniques = today->clone_uniques;
         }
 
-        // Day-over-day delta from actual daily counts
-        if (today && prev) {
-            r->views_delta         = today->views        > prev->views        ? today->views        - prev->views        : 0;
-            r->view_uniques_delta  = today->view_uniques > prev->view_uniques ? today->view_uniques - prev->view_uniques : 0;
-            r->clones_delta        = today->clones       > prev->clones       ? today->clones       - prev->clones       : 0;
-            r->clone_uniques_delta = today->clone_uniques > prev->clone_uniques ? today->clone_uniques - prev->clone_uniques : 0;
-        } else if (today) {
-            // Only one date available — show today's count as delta
-            r->views_delta         = today->views;
-            r->view_uniques_delta  = today->view_uniques;
-            r->clones_delta        = today->clones;
-            r->clone_uniques_delta = today->clone_uniques;
+        // Daily delta = most recent daily count available for this repo.
+        // GitHub's traffic API already buckets by day, so the daily count IS
+        // the increase. Fall back to prev if today's row hasn't shown up yet
+        // (early in the UTC day, before traffic accrues).
+        const csv_row_t *latest = today ? today : prev;
+        if (latest) {
+            r->views_delta         = latest->views;
+            r->view_uniques_delta  = latest->view_uniques;
+            r->clones_delta        = latest->clones;
+            r->clone_uniques_delta = latest->clone_uniques;
         }
         r->views_changed  = (r->views_delta  > 0);
         r->clones_changed = (r->clones_delta > 0);
