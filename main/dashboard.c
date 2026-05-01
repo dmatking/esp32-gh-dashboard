@@ -457,15 +457,35 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     }
     y += FONT_H * 3 + 24;
 
-    // 14-day history graph
+    // Top 3 repos by new clones in the last day
     {
-        const int GX = PAD, GY = 543, GW = W - PAD * 2, GH = 150;
-        draw_hline(GX, GY - 14, GW, 0x22, 0x22, 0x44);
-        font_puts_scaled(GX, GY - 12, "14d", C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
-        draw_mini_graph(GX, GY, GW, GH,
-                        stats->history_total_views,  C_VIEWS_R,  C_VIEWS_G,  C_VIEWS_B,
-                        stats->history_total_clones, C_CLONES_R, C_CLONES_G, C_CLONES_B,
-                        HISTORY_DAYS);
+        int order[GH_MAX_REPOS];
+        int n = stats->count;
+        for (int i = 0; i < n; i++) order[i] = i;
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - 1 - i; j++) {
+                if (stats->repos[order[j]].clones_delta <
+                    stats->repos[order[j + 1]].clones_delta) {
+                    int t = order[j]; order[j] = order[j + 1]; order[j + 1] = t;
+                }
+            }
+        }
+
+        int ly = 543;
+        draw_hline(PAD, ly - 14, W - PAD * 2, 0x22, 0x22, 0x44);
+        font_puts_scaled(PAD, ly - 12, "Top new clones",
+                         C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
+        ly += 14;
+
+        int top_n = (n < 3) ? n : 3;
+        for (int k = 0; k < top_n; k++) {
+            const gh_repo_t *r = &stats->repos[order[k]];
+            font_puts_scaled(PAD, ly, r->name, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+            char d[16];
+            snprintf(d, sizeof(d), "+%lu", (unsigned long)r->clones_delta);
+            font_puts_right(W - PAD, ly, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 3);
+            ly += FONT_H * 2 + 14;
+        }
     }
 
     board_lcd_flush();
