@@ -1,16 +1,27 @@
 // board_sim.c — desktop implementation of board_interface.h using screencap.
 // Replaces board_waveshare_wvshr_p4_720_touch.c for the native sim build.
+// Build with -DSIM_LCD_W=320 -DSIM_LCD_H=240 for CYD layout; defaults to 720x720.
 
 #include "board_interface.h"
 #include "screencap.h"
 #include <string.h>
 #include <stdint.h>
 
-#define LCD_W  720
-#define LCD_H  720
+#ifndef SIM_LCD_W
+#define SIM_LCD_W 720
+#endif
+#ifndef SIM_LCD_H
+#define SIM_LCD_H 720
+#endif
+
+#define LCD_W  SIM_LCD_W
+#define LCD_H  SIM_LCD_H
 #define BPP    3   // RGB888
 
-// Static framebuffer — 720*720*3 = ~1.5 MB, fine on desktop
+#define _STR(x)  #x
+#define _XSTR(x) _STR(x)
+#define SIM_NAME "Sim " _XSTR(SIM_LCD_W) "x" _XSTR(SIM_LCD_H)
+
 static uint8_t s_buf[LCD_H * LCD_W * BPP];
 
 // Forwarded from main_sim.c so screencap_init gets real argc/argv
@@ -32,7 +43,7 @@ void board_init(void)
     screencap_init(&cfg, sim_argc, sim_argv);
 }
 
-const char *board_get_name(void) { return "Sim 720x720"; }
+const char *board_get_name(void) { return SIM_NAME; }
 bool        board_has_lcd(void)  { return true; }
 
 int board_lcd_width(void)  { return LCD_W; }

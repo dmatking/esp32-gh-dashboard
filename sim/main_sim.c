@@ -34,8 +34,8 @@ static const gh_stats_t STATS = {
             .views = 45, .view_uniques = 6,
             .clones = 83, .clone_uniques = 46,
             .views_changed = true, .clones_changed = true,
-            .views_delta = 0, .view_uniques_delta = 0,
-            .clones_delta = 0, .clone_uniques_delta = 0,
+            .views_delta = 4, .view_uniques_delta = 3,
+            .clones_delta = 7, .clone_uniques_delta = 5,
             .history_views  = {0,1,2,1,3,2,4,3,2,5,3,4,6,5},
             .history_clones = {2,3,4,5,3,6,4,7,5,8,6,9,7,10},
         },
@@ -104,10 +104,10 @@ static const gh_stats_t STATS = {
     .total_view_uniques       = 15,    //  6+ 1+ 2+ 1+ 1+ 4
     .total_clones             = 433,   // 83+68+92+68+62+60
     .total_clone_uniques      = 262,   // 46+31+64+33+45+43
-    .total_views_delta        = 0,
-    .total_view_uniques_delta = 0,
-    .total_clones_delta       = 0,
-    .total_clone_uniques_delta= 0,
+    .total_views_delta        = 4,
+    .total_view_uniques_delta = 3,
+    .total_clones_delta       = 7,
+    .total_clone_uniques_delta= 5,
     // daily totals across all 6 repos (sum of per-repo history above)
     .history_total_views  = {11,10,17,15,20,15,21,21,17,26,31,24,32,36},
     .history_total_clones = {21,28,25,34,27,36,33,39,37,39,44,45,48,53},

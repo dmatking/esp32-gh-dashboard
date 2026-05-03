@@ -46,8 +46,7 @@
 #define C_DIM_G    0x33
 #define C_DIM_B    0x33
 
-#define W  720
-#define H  720
+// W and H are declared as locals in each draw function via board_lcd_width/height.
 
 // --- Drawing helpers ---
 
@@ -96,6 +95,7 @@ static void draw_hline(int x, int y, int w,
 static void draw_line(int x0, int y0, int x1, int y1,
                       uint8_t r, uint8_t g, uint8_t b)
 {
+    int W = board_lcd_width(), H = board_lcd_height();
     int dx =  abs(x1 - x0);
     int dy = -abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1;
@@ -187,10 +187,113 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 {
     if (idx < 0 || idx >= stats->count) return;
     const gh_repo_t *r = &stats->repos[idx];
+    const int W = board_lcd_width();
+    const int H = board_lcd_height();
 
     board_lcd_clear();
     fill_rect(0, 0, W, H, C_BG_R, C_BG_G, C_BG_B);
 
+    // -----------------------------------------------------------------------
+    // Small-screen layout (320×240, CYD)
+    // -----------------------------------------------------------------------
+    if (W <= 320) {
+        const int PAD   = 4;
+        const int BAR_X = PAD + 7 * FONT_W;  // 60 — clears "Clones " label
+        const int BAR_W = W - BAR_X - PAD;
+        const int BAR_H = 8;
+        int y = 4;
+
+        // Name (truncate to 15 chars so scale-2 fits) + clock
+        char name_buf[16];
+        strncpy(name_buf, r->name, 15);
+        name_buf[15] = '\0';
+        font_puts_scaled(PAD, y, name_buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        {
+            time_t now = time(NULL); struct tm t; localtime_r(&now, &t);
+            int h12 = t.tm_hour % 12; if (h12 == 0) h12 = 12;
+            char clk[8]; snprintf(clk, sizeof(clk), "%d:%02d", h12, t.tm_min);
+            font_puts_right(W - PAD, y + 4, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H * 2 + 4;  // 36
+
+        // Stars / forks
+        if (r->stars || r->forks) {
+            char meta[32] = "";
+            if (r->stars) { char t[12]; snprintf(t, sizeof(t), "* %d  ", r->stars);  strncat(meta, t, sizeof(meta)-strlen(meta)-1); }
+            if (r->forks) { char t[12]; snprintf(t, sizeof(t), "Y %d", r->forks);    strncat(meta, t, sizeof(meta)-strlen(meta)-1); }
+            font_puts_scaled(PAD, y, meta, C_STARS_R, C_STARS_G, C_STARS_B, 1);
+        }
+        y += FONT_H + 4;  // 56
+
+        // Description (single line, 36 chars max)
+        if (r->desc[0]) {
+            char line[37]; strncpy(line, r->desc, 36); line[36] = '\0';
+            font_puts_scaled(PAD, y, line, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H + 8;  // 80
+
+        draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
+        y += 6;  // 86
+
+        // Views
+        font_puts_scaled(PAD, y, "Views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 1);
+        draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->views, r->view_uniques,
+                       r->views ? r->views : 1, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
+        y += BAR_H + 4;  // 98
+        {
+            char n[12], u[12], d[14], ud[14];
+            snfmt_count(n, sizeof(n), r->views);
+            snfmt_count(u, sizeof(u), r->view_uniques);
+            int cx = BAR_X;
+            font_puts_scaled(cx, y, n, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(n) * FONT_W;
+            if (r->views_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->views_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
+            font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
+            font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
+            if (r->view_uniques_delta) { snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)r->view_uniques_delta); font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(ud) * FONT_W; }
+            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H + 10;  // 124
+
+        // Clones
+        font_puts_scaled(PAD, y, "Clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 1);
+        draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->clones, r->clone_uniques,
+                       r->clones ? r->clones : 1, C_CLONES_R, C_CLONES_G, C_CLONES_B);
+        y += BAR_H + 4;  // 136
+        {
+            char n[12], u[12], d[14], ud[14];
+            snfmt_count(n, sizeof(n), r->clones);
+            snfmt_count(u, sizeof(u), r->clone_uniques);
+            int cx = BAR_X;
+            font_puts_scaled(cx, y, n, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(n) * FONT_W;
+            if (r->clones_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->clones_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
+            font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
+            font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
+            if (r->clone_uniques_delta) { snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)r->clone_uniques_delta); font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(ud) * FONT_W; }
+            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H + 8;  // 160
+
+        // 14-day graph in the remaining space
+        {
+            draw_hline(PAD, y, W - PAD * 2, 0x22, 0x22, 0x44);
+            y += 2;
+            font_puts_scaled(PAD, y, "14d", C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
+            y += 2;
+            int gh = H - y - 2;
+            if (gh > 10)
+                draw_mini_graph(PAD, y, W - PAD * 2, gh,
+                                r->history_views,  C_VIEWS_R,  C_VIEWS_G,  C_VIEWS_B,
+                                r->history_clones, C_CLONES_R, C_CLONES_G, C_CLONES_B,
+                                HISTORY_DAYS);
+        }
+
+        board_lcd_flush();
+        return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Large-screen layout (720×720, P4)
+    // -----------------------------------------------------------------------
     const int PAD = 40;
     int y = 30;
 
@@ -343,9 +446,120 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
 
 void dashboard_draw_summary(const gh_stats_t *stats)
 {
+    const int W = board_lcd_width();
+    const int H = board_lcd_height();
+
     board_lcd_clear();
     fill_rect(0, 0, W, H, C_BG_R, C_BG_G, C_BG_B);
 
+    // -----------------------------------------------------------------------
+    // Small-screen layout (320×240, CYD)
+    // -----------------------------------------------------------------------
+    if (W <= 320) {
+        const int PAD   = 4;
+        const int BAR_X = PAD + 7 * FONT_W;  // 60
+        const int BAR_W = W - BAR_X - PAD;
+        const int BAR_H = 8;
+        int y = 4;
+
+        // Title + clock
+        font_puts_scaled(PAD, y, "GitHub Stats", C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        {
+            time_t now = time(NULL); struct tm t; localtime_r(&now, &t);
+            int h12 = t.tm_hour % 12; if (h12 == 0) h12 = 12;
+            char clk[8]; snprintf(clk, sizeof(clk), "%d:%02d", h12, t.tm_min);
+            font_puts_right(W - PAD, y + 4, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H * 2 + 4;  // 40
+
+        font_puts_scaled(PAD, y, "dmatking", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        y += FONT_H + 8;  // 64
+
+        draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
+        y += 4;  // 68
+
+        // Views row — bar + one line of numbers (all scale 1)
+        font_puts_scaled(PAD, y, "Views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 1);
+        draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H,
+                       stats->total_views, stats->total_view_uniques,
+                       stats->total_views ? stats->total_views : 1,
+                       C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
+        y += BAR_H + 4;  // 80
+        {
+            char n[12], u[12], d[14];
+            snfmt_count(n, sizeof(n), stats->total_views);
+            snfmt_count(u, sizeof(u), stats->total_view_uniques);
+            int cx = BAR_X;
+            font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 1); cx += strlen(n) * FONT_W;
+            if (stats->total_views_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_views_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
+            font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
+            font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
+            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H + 6;  // 102
+
+        // Clones row
+        font_puts_scaled(PAD, y, "Clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 1);
+        draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H,
+                       stats->total_clones, stats->total_clone_uniques,
+                       stats->total_clones ? stats->total_clones : 1,
+                       C_CLONES_R, C_CLONES_G, C_CLONES_B);
+        y += BAR_H + 4;  // 114
+        {
+            char n[12], u[12], d[14];
+            snfmt_count(n, sizeof(n), stats->total_clones);
+            snfmt_count(u, sizeof(u), stats->total_clone_uniques);
+            int cx = BAR_X;
+            font_puts_scaled(cx, y, n, C_TITLE_R, C_TITLE_G, C_TITLE_B, 1); cx += strlen(n) * FONT_W;
+            if (stats->total_clones_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_clones_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
+            font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
+            font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
+            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+        }
+        y += FONT_H + 6;  // 136
+
+        // Stars
+        {
+            int total_stars = 0;
+            for (int i = 0; i < stats->count; i++) total_stars += stats->repos[i].stars;
+            char buf[32]; snprintf(buf, sizeof(buf), "Stars: %d", total_stars);
+            font_puts_scaled(PAD, y, buf, C_STARS_R, C_STARS_G, C_STARS_B, 1);
+        }
+        y += FONT_H + 4;  // 156
+
+        draw_hline(PAD, y, W - PAD * 2, 0x22, 0x22, 0x44);
+        y += 4;  // 160
+
+        font_puts_scaled(PAD, y, "Top unique clones",
+                         C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
+        y += FONT_H + 4;  // 180
+
+        // Sort repos by clone_uniques_delta
+        int order[GH_MAX_REPOS];
+        int n = stats->count;
+        for (int i = 0; i < n; i++) order[i] = i;
+        for (int i = 0; i < n - 1; i++)
+            for (int j = 0; j < n - 1 - i; j++)
+                if (stats->repos[order[j]].clone_uniques_delta < stats->repos[order[j+1]].clone_uniques_delta) {
+                    int t = order[j]; order[j] = order[j+1]; order[j+1] = t;
+                }
+
+        int top_n = (n < 3) ? n : 3;
+        for (int k = 0; k < top_n && y + FONT_H <= H; k++) {
+            const gh_repo_t *rp = &stats->repos[order[k]];
+            font_puts_scaled(PAD, y, rp->name, C_TITLE_R, C_TITLE_G, C_TITLE_B, 1);
+            char d[12]; snprintf(d, sizeof(d), "+%lu", (unsigned long)rp->clone_uniques_delta);
+            font_puts_right(W - PAD, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1);
+            y += FONT_H + 4;
+        }
+
+        board_lcd_flush();
+        return;
+    }
+
+    // -----------------------------------------------------------------------
+    // Large-screen layout (720×720, P4)
+    // -----------------------------------------------------------------------
     const int PAD = 40;
     int y = 40;
 
@@ -493,21 +707,28 @@ void dashboard_draw_summary(const gh_stats_t *stats)
 
 void dashboard_draw_fetching(void)
 {
+    const int W = board_lcd_width();
+    const int H = board_lcd_height();
+    const int PAD = W <= 320 ? 6 : 40;
+    const int sc  = W <= 320 ? 2 : 3;
     board_lcd_clear();
     fill_rect(0, 0, W, H, C_BG_R, C_BG_G, C_BG_B);
-    font_puts_scaled(40, H / 2 - FONT_H * 2, "Fetching stats...",
-                     C_LABEL_R, C_LABEL_G, C_LABEL_B, 3);
-    font_puts_scaled(40, H / 2 + FONT_H * 2, "api.github.com",
-                     C_DIM_R + 0x22, C_DIM_G + 0x22, C_DIM_B + 0x22, 2);
+    font_puts_scaled(PAD, H / 2 - FONT_H * sc, "Fetching stats...",
+                     C_LABEL_R, C_LABEL_G, C_LABEL_B, sc);
+    font_puts_scaled(PAD, H / 2 + FONT_H * 2, "api.github.com",
+                     C_DIM_R + 0x22, C_DIM_G + 0x22, C_DIM_B + 0x22, W <= 320 ? 1 : 2);
     board_lcd_flush();
 }
 
 void dashboard_draw_error(const char *msg)
 {
+    const int W = board_lcd_width();
+    const int H = board_lcd_height();
+    const int PAD = W <= 320 ? 6 : 40;
     board_lcd_clear();
     fill_rect(0, 0, W, H, C_BG_R, C_BG_G, C_BG_B);
-    font_puts_scaled(40, H / 2 - FONT_H * 3, "Error", 0xFF, 0x44, 0x44, 4);
-    font_puts_scaled(40, H / 2 + FONT_H * 2, msg,
-                     C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    font_puts_scaled(PAD, H / 2 - FONT_H * 3, "Error", 0xFF, 0x44, 0x44, W <= 320 ? 3 : 4);
+    font_puts_scaled(PAD, H / 2 + FONT_H * 2, msg,
+                     C_LABEL_R, C_LABEL_G, C_LABEL_B, W <= 320 ? 1 : 2);
     board_lcd_flush();
 }
