@@ -376,13 +376,13 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     font_puts_scaled(PAD, y, buf, C_LABEL_R + 0x30, C_LABEL_G + 0x30, C_LABEL_B + 0x30, 2);
     y += FONT_H * 2 + 16;
 
-    const int BAR_X   = PAD + 14 * FONT_W * 2;  // aligns with "Total clones:" label width
+    const int BAR_X   = PAD + 8 * FONT_W * 2;  // aligns with "Clones:" label width
     const int BAR_W   = W - BAR_X - PAD;
     const int BAR_H   = 28;
     const int ROW_PAD = 24;
 
-    // -- Total views row --
-    font_puts_scaled(PAD, y, "Total views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
+    // -- Views row --
+    font_puts_scaled(PAD, y, "Views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
     draw_bar_split(BAR_X, y + 4, BAR_W, BAR_H,
                    stats->total_views, stats->total_view_uniques,
                    stats->total_views ? stats->total_views : 1,
@@ -413,8 +413,8 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     }
     y += FONT_H * 3 + ROW_PAD;
 
-    // -- Total clones row --
-    font_puts_scaled(PAD, y, "Total clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
+    // -- Clones row --
+    font_puts_scaled(PAD, y, "Clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
     draw_bar_split(BAR_X, y + 4, BAR_W, BAR_H,
                    stats->total_clones, stats->total_clone_uniques,
                    stats->total_clones ? stats->total_clones : 1,
@@ -445,8 +445,8 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     }
     y += FONT_H * 3 + ROW_PAD;
 
-    // -- Total stars row --
-    font_puts_scaled(PAD, y, "Total stars:", C_STARS_R, C_STARS_G, C_STARS_B, 2);
+    // -- Stars row --
+    font_puts_scaled(PAD, y, "Stars:", C_STARS_R, C_STARS_G, C_STARS_B, 2);
     {
         char n[16];
         snfmt_count(n, sizeof(n), total_stars);
@@ -464,8 +464,8 @@ void dashboard_draw_summary(const gh_stats_t *stats)
         for (int i = 0; i < n; i++) order[i] = i;
         for (int i = 0; i < n - 1; i++) {
             for (int j = 0; j < n - 1 - i; j++) {
-                if (stats->repos[order[j]].clones_delta <
-                    stats->repos[order[j + 1]].clones_delta) {
+                if (stats->repos[order[j]].clone_uniques_delta <
+                    stats->repos[order[j + 1]].clone_uniques_delta) {
                     int t = order[j]; order[j] = order[j + 1]; order[j + 1] = t;
                 }
             }
@@ -473,7 +473,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
 
         int ly = 543;
         draw_hline(PAD, ly - 14, W - PAD * 2, 0x22, 0x22, 0x44);
-        font_puts_scaled(PAD, ly - 12, "Top new clones",
+        font_puts_scaled(PAD, ly - 12, "Top unique clones",
                          C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
         ly += 14;
 
@@ -482,7 +482,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
             const gh_repo_t *r = &stats->repos[order[k]];
             font_puts_scaled(PAD, ly, r->name, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
             char d[16];
-            snprintf(d, sizeof(d), "+%lu", (unsigned long)r->clones_delta);
+            snprintf(d, sizeof(d), "+%lu", (unsigned long)r->clone_uniques_delta);
             font_puts_right(W - PAD, ly, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 3);
             ly += FONT_H * 2 + 14;
         }
