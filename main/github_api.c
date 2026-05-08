@@ -190,6 +190,9 @@ bool github_fetch_stats(gh_stats_t *stats)
     if (!traffic_history_fetch(stats))
         ESP_LOGW(TAG, "traffic.csv fetch failed — history graph unavailable");
 
+    // 3c. Fetch repo_config.csv (optional hide/exclude_totals flags per repo)
+    traffic_repo_config_fetch(stats);
+
     // 4. Populate each repo: totals from totals.csv, deltas from daily counts
     for (int i = 0; i < stats->count; i++) {
         gh_repo_t *r = &stats->repos[i];
@@ -232,14 +235,16 @@ bool github_fetch_stats(gh_stats_t *stats)
         r->views_changed  = (r->views_delta  > 0);
         r->clones_changed = (r->clones_delta > 0);
 
-        stats->total_views               += r->views;
-        stats->total_view_uniques        += r->view_uniques;
-        stats->total_clones              += r->clones;
-        stats->total_clone_uniques       += r->clone_uniques;
-        stats->total_views_delta         += r->views_delta;
-        stats->total_view_uniques_delta  += r->view_uniques_delta;
-        stats->total_clones_delta        += r->clones_delta;
-        stats->total_clone_uniques_delta += r->clone_uniques_delta;
+        if (!r->exclude_totals) {
+            stats->total_views               += r->views;
+            stats->total_view_uniques        += r->view_uniques;
+            stats->total_clones              += r->clones;
+            stats->total_clone_uniques       += r->clone_uniques;
+            stats->total_views_delta         += r->views_delta;
+            stats->total_view_uniques_delta  += r->view_uniques_delta;
+            stats->total_clones_delta        += r->clones_delta;
+            stats->total_clone_uniques_delta += r->clone_uniques_delta;
+        }
     }
 
     ESP_LOGI(TAG, "Fetched %d repos — newest=%s prev=%s totals=%s",

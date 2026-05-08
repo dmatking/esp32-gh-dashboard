@@ -137,6 +137,8 @@ void app_main(void)
         wait_or_button(CYCLE_MS);
 
         screen_idx++;
+        while (screen_idx < stats.count && stats.repos[screen_idx].hide)
+            screen_idx++;
         if (screen_idx >= stats.count) screen_idx = -1;
     }
 }

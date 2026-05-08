@@ -66,6 +66,14 @@ const totals_row_t *traffic_totals_find(const totals_data_t *data,
 
 // --- traffic.csv (full daily history) ---
 
+// --- repo_config.csv (per-repo display flags) ---
+
+// Fetch repo_config.csv (format: repo,show,exclude_totals) and apply display
+// flags to repos in stats.  If the file exists, only repos with show=1 appear
+// in the per-repo cycle; repos not listed are hidden from cycling but still
+// counted in totals.  On 404 or error returns false and shows all repos.
+bool traffic_repo_config_fetch(gh_stats_t *stats);
+
 // Fetch traffic.csv and populate the history_views[] / history_clones[] arrays
 // on each repo in stats, plus history_total_views[] / history_total_clones[]
 // on the stats struct itself.  The last HISTORY_DAYS distinct dates are kept,

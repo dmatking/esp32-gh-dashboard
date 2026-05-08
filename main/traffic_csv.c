@@ -17,11 +17,14 @@ static const char *TAG = "traffic_csv";
 
 #define CSV_BUF_SIZE    8192
 #define TOTALS_BUF_SIZE 4096
+#define CONFIG_BUF_SIZE 1024
 
 #define CSV_URL    "https://raw.githubusercontent.com/" \
                    CONFIG_GH_USERNAME "/github-traffic-log/main/latest.csv"
-#define TOTALS_URL "https://raw.githubusercontent.com/" \
-                   CONFIG_GH_USERNAME "/github-traffic-log/main/totals.csv"
+#define TOTALS_URL  "https://raw.githubusercontent.com/" \
+                    CONFIG_GH_USERNAME "/github-traffic-log/main/totals.csv"
+#define CONFIG_URL  "https://raw.githubusercontent.com/" \
+                    CONFIG_GH_USERNAME "/github-traffic-log/main/repo_config.csv"
 
 typedef struct { char *data; int len; int cap; } http_buf_t;
 
@@ -249,6 +252,96 @@ const totals_row_t *traffic_totals_find(const totals_data_t *data,
             return &data->rows[i];
     }
     return NULL;
+}
+
+// ---------------------------------------------------------------------------
+// repo_config.csv — per-repo display flags
+// Format: repo,show,exclude_totals
+//
+// Opt-in for cycling screens: if this file exists, only repos with show=1
+// appear in the per-repo screen cycle.  Repos not listed are hidden from
+// cycling but still counted in totals (unless exclude_totals=1).
+// If the file is absent (404), all repos are shown and nothing is excluded.
+// ---------------------------------------------------------------------------
+
+bool traffic_repo_config_fetch(gh_stats_t *stats)
+{
+    char *buf = malloc(CONFIG_BUF_SIZE);
+    if (!buf) return false;
+
+    http_buf_t hbuf = { .data = buf, .len = 0, .cap = CONFIG_BUF_SIZE };
+    buf[0] = '\0';
+
+    esp_http_client_config_t cfg = {
+        .url               = CONFIG_URL,
+        .event_handler     = http_event_cb,
+        .user_data         = &hbuf,
+        .transport_type    = HTTP_TRANSPORT_OVER_SSL,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .timeout_ms        = 10000,
+        .buffer_size       = 2048,
+        .buffer_size_tx    = 512,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&cfg);
+    esp_http_client_set_header(client, "User-Agent", "esp32-gh-dashboard");
+
+    esp_err_t err = esp_http_client_perform(client);
+    int status    = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+
+    if (err != ESP_OK || status != 200) {
+        ESP_LOGD(TAG, "repo_config.csv not found (status=%d) — showing all repos", status);
+        free(buf);
+        return false;
+    }
+
+    // File exists: switch to opt-in mode — hide all repos until explicitly shown.
+    for (int i = 0; i < stats->count; i++)
+        stats->repos[i].hide = true;
+
+    int applied = 0;
+    char *line = buf;
+    bool header = true;
+    while (line && *line) {
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = '\0';
+        int len = strlen(line);
+        if (len > 0 && line[len - 1] == '\r') line[len - 1] = '\0';
+
+        if (header) {
+            header = false;
+        } else if (line[0]) {
+            char *f[3];
+            int nf = 0;
+            char *p = line;
+            while (nf < 3) {
+                f[nf++] = p;
+                char *comma = strchr(p, ',');
+                if (!comma) break;
+                *comma = '\0';
+                p = comma + 1;
+            }
+            if (nf >= 3) {
+                bool show = atoi(f[1]) != 0;
+                bool excl = atoi(f[2]) != 0;
+                for (int i = 0; i < stats->count; i++) {
+                    if (strcmp(stats->repos[i].name, f[0]) == 0) {
+                        stats->repos[i].hide           = !show;
+                        stats->repos[i].exclude_totals = excl;
+                        applied++;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!nl) break;
+        line = nl + 1;
+    }
+
+    free(buf);
+    ESP_LOGI(TAG, "repo_config.csv: %d repos configured", applied);
+    return true;
 }
 
 // ---------------------------------------------------------------------------

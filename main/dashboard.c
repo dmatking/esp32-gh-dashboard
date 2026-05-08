@@ -367,12 +367,18 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
     y += 24;
 
-    // Tally total stars across all repos
-    int total_stars = 0;
-    for (int i = 0; i < stats->count; i++) total_stars += stats->repos[i].stars;
+    // Tally stars and count for repos not excluded from totals
+    int total_stars  = 0;
+    int tracked_count = 0;
+    for (int i = 0; i < stats->count; i++) {
+        if (!stats->repos[i].exclude_totals) {
+            total_stars += stats->repos[i].stars;
+            tracked_count++;
+        }
+    }
 
     char buf[64];
-    snprintf(buf, sizeof(buf), "Repos tracked:   %d", stats->count);
+    snprintf(buf, sizeof(buf), "Repos tracked:   %d", tracked_count);
     font_puts_scaled(PAD, y, buf, C_LABEL_R + 0x30, C_LABEL_G + 0x30, C_LABEL_B + 0x30, 2);
     y += FONT_H * 2 + 16;
 
@@ -460,8 +466,10 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     // Top 3 repos by new clones in the last day
     {
         int order[GH_MAX_REPOS];
-        int n = stats->count;
-        for (int i = 0; i < n; i++) order[i] = i;
+        int n = 0;
+        for (int i = 0; i < stats->count; i++) {
+            if (!stats->repos[i].exclude_totals) order[n++] = i;
+        }
         for (int i = 0; i < n - 1; i++) {
             for (int j = 0; j < n - 1 - i; j++) {
                 if (stats->repos[order[j]].clone_uniques_delta <

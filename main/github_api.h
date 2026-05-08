@@ -16,6 +16,8 @@ typedef struct {
     int      stars;
     int      forks;
     bool     is_private;
+    bool     hide;            // skip per-repo cycling screen
+    bool     exclude_totals;  // exclude from summary totals and leaderboard
     uint32_t views;
     uint32_t view_uniques;
     uint32_t clones;
