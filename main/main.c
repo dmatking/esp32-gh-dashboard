@@ -13,8 +13,10 @@
 #include "driver/gpio.h"
 
 #include "board_interface.h"
-#include "wifi.h"
+#include "wifi_prov.h"
+#include "esp_hosted.h"
 #include "github_api.h"
+#include "traffic_csv.h"
 #include "dashboard.h"
 
 #define BOOT_BUTTON_GPIO  35   // ESP32-P4 BOOT/STRAPPING pin, active-low
@@ -47,6 +49,14 @@ static bool wait_or_button(int timeout_ms)
 }
 
 static const char *TAG = "dashboard";
+
+static void portal_display(const char *ap_ssid, void *ctx)
+{
+    (void)ctx;
+    char msg[96];
+    snprintf(msg, sizeof(msg), "Setup mode - connect\nphone to WiFi:\n%s", ap_ssid);
+    dashboard_draw_error(msg);
+}
 
 #define CYCLE_MS     (CONFIG_DASHBOARD_CYCLE_SEC * 1000)
 #define REFRESH_HOUR  CONFIG_DASHBOARD_REFRESH_HOUR
@@ -88,14 +98,39 @@ void app_main(void)
 
     board_init();
     button_init();
-    nvs_flash_init();
 
     dashboard_draw_fetching();
 
-    if (!wifi_connect()) {
+    // P4: init C6 co-processor before any WiFi calls
+    ESP_ERROR_CHECK(esp_hosted_init());
+    ESP_ERROR_CHECK(esp_hosted_connect_to_slave());
+
+    static const wifi_prov_field_t prov_fields[] = {
+        { .key = "gh_user",  .label = "GitHub Username",
+          .placeholder = "your-github-username" },
+        { .key = "gh_token", .label = "GitHub Token",
+          .placeholder = "ghp_...", .secret = true },
+    };
+    wifi_prov_config_t prov_cfg = {
+        .ap_ssid      = "DashboardSetup",
+        .boot_gpio    = BOOT_BUTTON_GPIO,
+        .on_portal    = portal_display,
+        .extra_fields = prov_fields,
+        .extra_count  = 2,
+    };
+    if (!wifi_prov_start(&prov_cfg)) {
         dashboard_draw_error("WiFi failed");
         vTaskDelay(portMAX_DELAY);
     }
+
+    // Read runtime credentials from NVS and pass to API modules
+    char gh_user[64]  = { 0 };
+    char gh_token[128] = { 0 };
+    wifi_prov_get("gh_user",  gh_user,  sizeof(gh_user));
+    wifi_prov_get("gh_token", gh_token, sizeof(gh_token));
+    github_set_credentials(gh_user[0]  ? gh_user  : NULL,
+                           gh_token[0] ? gh_token : NULL);
+    traffic_csv_set_username(gh_user[0] ? gh_user : NULL);
 
     sync_time();
 

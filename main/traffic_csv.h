@@ -33,6 +33,10 @@ typedef struct {
     char      prev_date[12];     // second most recent date (may be empty)
 } csv_data_t;
 
+// Set runtime GitHub username (overrides Kconfig default).
+// Call before any traffic_csv_* fetch functions.
+void traffic_csv_set_username(const char *username);
+
 // Fetch and parse latest.csv.  Returns true on success.
 bool traffic_csv_fetch(csv_data_t *out);
 

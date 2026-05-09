@@ -19,12 +19,21 @@ static const char *TAG = "traffic_csv";
 #define TOTALS_BUF_SIZE 4096
 #define CONFIG_BUF_SIZE 1024
 
-#define CSV_URL    "https://raw.githubusercontent.com/" \
-                   CONFIG_GH_USERNAME "/github-traffic-log/main/latest.csv"
-#define TOTALS_URL  "https://raw.githubusercontent.com/" \
-                    CONFIG_GH_USERNAME "/github-traffic-log/main/totals.csv"
-#define CONFIG_URL  "https://raw.githubusercontent.com/" \
-                    CONFIG_GH_USERNAME "/github-traffic-log/main/repo_config.csv"
+static char s_gh_username[64] = CONFIG_GH_USERNAME;
+
+void traffic_csv_set_username(const char *username)
+{
+    if (username && username[0])
+        strncpy(s_gh_username, username, sizeof(s_gh_username) - 1);
+}
+
+#define RAW_BASE "https://raw.githubusercontent.com/"
+#define TRAFFIC_PATH "/github-traffic-log/main/"
+
+static void build_url(char *dst, size_t dst_len, const char *file)
+{
+    snprintf(dst, dst_len, RAW_BASE "%s" TRAFFIC_PATH "%s", s_gh_username, file);
+}
 
 typedef struct { char *data; int len; int cap; } http_buf_t;
 
@@ -79,8 +88,10 @@ bool traffic_csv_fetch(csv_data_t *out)
     http_buf_t hbuf = { .data = buf, .len = 0, .cap = CSV_BUF_SIZE };
     buf[0] = '\0';
 
+    char url[192];
+    build_url(url, sizeof(url), "latest.csv");
     esp_http_client_config_t cfg = {
-        .url               = CSV_URL,
+        .url               = url,
         .event_handler     = http_event_cb,
         .user_data         = &hbuf,
         .transport_type    = HTTP_TRANSPORT_OVER_SSL,
@@ -196,8 +207,10 @@ bool traffic_totals_fetch(totals_data_t *out)
     http_buf_t hbuf = { .data = buf, .len = 0, .cap = TOTALS_BUF_SIZE };
     buf[0] = '\0';
 
+    char url[192];
+    build_url(url, sizeof(url), "totals.csv");
     esp_http_client_config_t cfg = {
-        .url               = TOTALS_URL,
+        .url               = url,
         .event_handler     = http_event_cb,
         .user_data         = &hbuf,
         .transport_type    = HTTP_TRANSPORT_OVER_SSL,
@@ -272,8 +285,10 @@ bool traffic_repo_config_fetch(gh_stats_t *stats)
     http_buf_t hbuf = { .data = buf, .len = 0, .cap = CONFIG_BUF_SIZE };
     buf[0] = '\0';
 
+    char url[192];
+    build_url(url, sizeof(url), "repo_config.csv");
     esp_http_client_config_t cfg = {
-        .url               = CONFIG_URL,
+        .url               = url,
         .event_handler     = http_event_cb,
         .user_data         = &hbuf,
         .transport_type    = HTTP_TRANSPORT_OVER_SSL,
@@ -348,8 +363,6 @@ bool traffic_repo_config_fetch(gh_stats_t *stats)
 // traffic.csv — full daily history, one row per (date, repo)
 // ---------------------------------------------------------------------------
 
-#define HISTORY_URL      "https://raw.githubusercontent.com/" \
-                         CONFIG_GH_USERNAME "/github-traffic-log/main/traffic.csv"
 #define HISTORY_BUF_SIZE 32768
 #define MAX_HIST_DATES   64   // scratch for date collection before truncating to 14
 
@@ -366,8 +379,10 @@ bool traffic_history_fetch(gh_stats_t *stats)
     http_buf_t hbuf = { .data = buf, .len = 0, .cap = HISTORY_BUF_SIZE };
     buf[0] = '\0';
 
+    char url[192];
+    build_url(url, sizeof(url), "traffic.csv");
     esp_http_client_config_t cfg = {
-        .url               = HISTORY_URL,
+        .url               = url,
         .event_handler     = http_event_cb,
         .user_data         = &hbuf,
         .transport_type    = HTTP_TRANSPORT_OVER_SSL,

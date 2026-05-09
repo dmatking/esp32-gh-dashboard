@@ -47,6 +47,10 @@ typedef struct {
     uint32_t  history_total_clones[HISTORY_DAYS];
 } gh_stats_t;
 
+// Set runtime GitHub credentials (overrides Kconfig defaults).
+// Call before github_fetch_stats().
+void github_set_credentials(const char *username, const char *token);
+
 // Fetch all user repos via GraphQL, traffic via CSV.
 // Deltas are computed day-over-day from latest.csv (no prev needed).
 bool github_fetch_stats(gh_stats_t *stats);

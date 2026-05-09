@@ -19,7 +19,7 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES esp_http_client esp-tls nvs_flash json esp_timer
              esp_wifi esp_driver_ppa esp_mm mbedtls esp_lcd_st7703
-             esp_netif lwip ${EXTRA_REQUIRES}
+             esp_netif lwip wifi_prov espressif__esp_hosted ${EXTRA_REQUIRES}
 )
 
 if(EXTRA_DEFINES)

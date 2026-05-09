@@ -15,6 +15,18 @@
 
 static const char *TAG = "github_api";
 
+static char s_gh_username[64]  = CONFIG_GH_USERNAME;
+static char s_gh_token[128]    = CONFIG_GH_TOKEN;
+
+void github_set_credentials(const char *username, const char *token)
+{
+    if (username && username[0])
+        strncpy(s_gh_username, username, sizeof(s_gh_username) - 1);
+    if (token && token[0])
+        strncpy(s_gh_token, token, sizeof(s_gh_token) - 1);
+    ESP_LOGI(TAG, "Credentials set for user: %s", s_gh_username);
+}
+
 // Replace common multi-byte UTF-8 sequences with ASCII equivalents in-place.
 static void sanitize_desc(char *s)
 {
@@ -70,8 +82,8 @@ static bool gh_graphql(const char *query_body, char *out_buf, int buf_cap)
     http_buf_t buf = { .data = out_buf, .len = 0, .cap = buf_cap };
     out_buf[0] = '\0';
 
-    char auth[128];
-    snprintf(auth, sizeof(auth), "Bearer %s", CONFIG_GH_TOKEN);
+    char auth[160];
+    snprintf(auth, sizeof(auth), "Bearer %s", s_gh_token);
 
     esp_http_client_config_t cfg = {
         .url               = GH_GRAPHQL_URL,
@@ -131,7 +143,7 @@ bool github_fetch_stats(gh_stats_t *stats)
         "{\"query\":\"{user(login:\\\"%s\\\"){repositories(first:%d,ownerAffiliations:OWNER,isFork:false,"
         "orderBy:{field:PUSHED_AT,direction:DESC})"
         "{nodes{name description stargazerCount forkCount isPrivate}}}}\"}",
-        CONFIG_GH_USERNAME, GH_MAX_REPOS);
+        s_gh_username, GH_MAX_REPOS);
 
     if (!gh_graphql(gql, buf, BUF_SIZE)) {
         free(buf);
