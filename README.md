@@ -4,7 +4,7 @@ A GitHub repository traffic dashboard running on the **Waveshare ESP32-P4-WIFI6-
 
 > For chip-level notes on the P4+C6 combination (esp_hosted init, SDIO, PSRAM, errata, etc.) see [esp32-notes](https://github.com/dmatking/esp32-notes).
 
-The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your repositories.
+The device fetches your GitHub repository traffic stats (views, unique visitors, clones) once a day and cycles through a summary screen followed by a per-repo detail screen for each of your repositories. An optional `repo_config.csv` in the traffic-log repo lets you control which repos appear on the display and which are counted in the totals.
 
 <img title="" src="assets/screenshot.png" alt="Dashboard repo screen" width="320"><img title="" src="assets/screenshot2.png" alt="Dashboard repo screen" width="320">
 
@@ -19,12 +19,15 @@ The device fetches your GitHub repository traffic stats (views, unique visitors,
 - Daily refresh at a configurable local time (default: 6:00 AM)
 - NTP time sync with configurable timezone (POSIX TZ string, DST-aware)
 - Configurable screen cycle interval (default: 30 seconds)
+- Optional `repo_config.csv`: opt-in display list and per-repo totals exclusions
 
 ## How it works
 
 Traffic data is collected by a companion GitHub Action in [github-traffic-log](https://github.com/dmatking/github-traffic-log), which runs daily and appends stats to a CSV file. The dashboard fetches `latest.csv` (the last two days of data) on boot and at the configured refresh hour, computing true day-over-day deltas regardless of how long the device has been offline.
 
 Repo names and descriptions are fetched via the GitHub GraphQL API. GitHub's traffic API only retains 14 days of history — the CSV log provides permanent accumulation beyond that window.
+
+The dashboard also fetches an optional `repo_config.csv` from the traffic-log repo. If present, it switches the per-repo cycling screens to opt-in mode — only repos listed with `show=1` get their own screen. Repos not listed are hidden from cycling but still counted in the summary totals. A separate `exclude_totals` flag removes a repo from the totals and leaderboard entirely. If the file is absent, all repos are shown with no filtering.
 
 ## Hardware
 
@@ -102,6 +105,27 @@ Monitor output:
 ```bash
 idf.py -p /dev/ttyACM0 monitor
 ```
+
+## Filtering repos
+
+Create `repo_config.csv` in the root of your `github-traffic-log` repo to control what appears on the display:
+
+```csv
+repo,show,exclude_totals
+esp32-gh-dashboard,1,0
+my-other-project,1,0
+profile-repo,0,1
+```
+
+| Column           | Effect                                                                 |
+| ---------------- | ---------------------------------------------------------------------- |
+| `show=1`         | Repo gets a per-repo cycling screen                                    |
+| `show=0`         | No cycling screen, but still counted in summary totals                 |
+| `exclude_totals=1` | Removed from summary totals, stars count, and top-clones leaderboard |
+
+**If the file is absent**, all repos are shown and nothing is excluded — fully backward-compatible.
+
+**If the file is present**, only repos with `show=1` appear in the cycling screens. Repos not listed at all are hidden from cycling but counted in totals. New repos you push will appear in totals automatically without touching the file; add them with `show=1` when you want them on the display.
 
 ## Project structure
 
