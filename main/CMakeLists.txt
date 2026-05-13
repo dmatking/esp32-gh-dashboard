@@ -10,7 +10,7 @@ idf_component_register(
     SRCS "main.c"
          "board_waveshare_wvshr_p4_720_touch.c"
          "board_defaults.c"
-         "wifi.c"
+        
          "github_api.c"
          "traffic_csv.c"
          "dashboard.c"
