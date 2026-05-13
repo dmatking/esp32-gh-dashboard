@@ -17,3 +17,5 @@ __pycache__/
 .idea/
 .cache/
 .claude/
+main/idf_component.yml
+board_config.cmake
