@@ -16,10 +16,10 @@ idf.py -p /dev/ttyACM0 flash
 To create a merged single-file binary (suitable for the web flasher):
 
 ```bash
-idf.py merge-bin -o gh-stats-dashboard-flash.bin
+idf.py merge-bin -o esp32-gh-dashboard-flash.bin
 ```
 
-Output is in `build/gh-stats-dashboard-flash.bin`, ready to flash to offset `0x0`.
+Output is in `build/esp32-gh-dashboard-flash.bin`, ready to flash to offset `0x0`.
 
 ## Configuration
 
@@ -89,5 +89,5 @@ components/
 sdkconfig.defaults                      ESP32-P4 + Waveshare board settings
 partitions.csv                          16 MB flash layout (4 MB app partition)
 releases/
-  gh-stats-dashboard-flash.bin         Pre-built merged binary (flash to offset 0x0)
+  esp32-gh-dashboard-flash.bin         Pre-built merged binary (flash to offset 0x0)
 ```

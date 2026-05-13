@@ -18,7 +18,7 @@ A GitHub traffic dashboard for the **Waveshare ESP32-P4-WIFI6-Touch-LCD-4B**. Sh
 
 ### Option A — Web flasher (easiest, no install required)
 
-Open **[ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in Chrome or Edge, connect your board via USB, and select `releases/gh-stats-dashboard-flash.bin` from this repo.
+Open **[ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in Chrome or Edge, connect your board via USB, and select `releases/esp32-gh-dashboard-flash.bin` from this repo.
 
 ### Option B — esptool (Python)
 
@@ -26,7 +26,7 @@ Open **[ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in C
 pip install esptool
 python -m esptool --chip esp32p4 -b 460800 \
   --before default_reset --after hard_reset \
-  write_flash 0x0 releases/gh-stats-dashboard-flash.bin
+  write_flash 0x0 releases/esp32-gh-dashboard-flash.bin
 ```
 
 ---

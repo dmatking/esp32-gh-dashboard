@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
 list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.defaults")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(gh-stats-dashboard)
+project(esp32-gh-dashboard)
 
