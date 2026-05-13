@@ -21,3 +21,10 @@ CONFIG_MBEDTLS_SSL_IN_CONTENT_LEN=8192
 CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096
 # Drop peer cert after validation (saves ~1-2 KB during handshake)
 CONFIG_MBEDTLS_SSL_KEEP_PEER_CERTIFICATE=n
+
+# Custom 4MB partition table (CYD has 4MB flash)
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions_cyd.csv"
+
+# Size optimization — keep app under ~4MB
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y

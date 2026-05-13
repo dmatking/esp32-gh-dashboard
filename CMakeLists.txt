@@ -20,14 +20,10 @@ else()
 endif()
 file(WRITE ${CMAKE_SOURCE_DIR}/main/idf_component.yml "${_manifest}")
 
-# Load credentials from ~/.esp_creds (WiFi, GitHub token) — must be before project.cmake
 if(BOARD STREQUAL "cyd28")
     list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.cyd28")
 else()
     list(APPEND SDKCONFIG_DEFAULTS "sdkconfig.defaults")
-endif()
-if(EXISTS "$ENV{HOME}/.esp_creds")
-    list(APPEND SDKCONFIG_DEFAULTS "$ENV{HOME}/.esp_creds")
 endif()
 
 # Set up ESP-IDF build environment

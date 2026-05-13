@@ -15,7 +15,9 @@
 
 #include "board_interface.h"
 #include "wifi_prov.h"
+#ifndef BOARD_NATIVE_WIFI
 #include "esp_hosted.h"
+#endif
 #include "github_api.h"
 #include "traffic_csv.h"
 #include "dashboard.h"
@@ -108,9 +110,11 @@ void app_main(void)
 
     dashboard_draw_fetching();
 
+#ifndef BOARD_NATIVE_WIFI
     // P4: init C6 co-processor before any WiFi calls
     ESP_ERROR_CHECK(esp_hosted_init());
     ESP_ERROR_CHECK(esp_hosted_connect_to_slave());
+#endif
 
     static const wifi_prov_option_t tz_options[] = {
         { "US Eastern (ET)",            "EST5EDT,M3.2.0,M11.1.0"          },

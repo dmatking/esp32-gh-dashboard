@@ -9,6 +9,7 @@
 #include "font8x16.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -743,27 +744,42 @@ void dashboard_draw_error(const char *msg)
 
 void dashboard_draw_provisioning(const char *title, const char *ssid)
 {
+    const int W = board_lcd_width();
+    const int H = board_lcd_height();
     board_lcd_clear();
     fill_rect(0, 0, W, H, C_BG_R, C_BG_G, C_BG_B);
 
-    font_puts_scaled((W - (int)strlen(title) * FONT_W * 4) / 2, 180,
-                     title, 0x00, 0xCC, 0xFF, 4);
-
-    const char *l1 = "Connect phone to WiFi:";
-    font_puts_scaled((W - (int)strlen(l1) * FONT_W * 2) / 2, 330,
-                     l1, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
-
-    int sx = (W - (int)strlen(ssid) * FONT_W * 3) / 2;
-    if (sx < 20) sx = 20;
-    font_puts_scaled(sx, 374, ssid, C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
-
-    const char *l2 = "No popup? Open browser:";
-    font_puts_scaled((W - (int)strlen(l2) * FONT_W * 2) / 2, 480,
-                     l2, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
-
+    const char *l1  = "Connect phone to WiFi:";
+    const char *l2  = "No popup? Open browser:";
     const char *url = "http://192.168.4.1/";
-    font_puts_scaled((W - (int)strlen(url) * FONT_W * 2) / 2, 524,
-                     url, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
+
+    // Scale by display size — CYD (240px tall) gets small fonts, P4 keeps the big layout.
+    const bool small = (W <= 320);
+    const int s_title = small ? 2 : 4;
+    const int s_label = small ? 1 : 2;
+    const int s_ssid  = small ? 2 : 3;
+    const int s_url   = small ? 1 : 2;
+
+    // Vertical layout as fractions of H so it scales with display.
+    const int y_title = H / 8;
+    const int y_l1    = H * 5 / 16;
+    const int y_ssid  = H * 7 / 16;
+    const int y_l2    = H * 11 / 16;
+    const int y_url   = H * 13 / 16;
+
+    font_puts_scaled((W - (int)strlen(title) * FONT_W * s_title) / 2, y_title,
+                     title, 0x00, 0xCC, 0xFF, s_title);
+    font_puts_scaled((W - (int)strlen(l1) * FONT_W * s_label) / 2, y_l1,
+                     l1, C_LABEL_R, C_LABEL_G, C_LABEL_B, s_label);
+
+    int sx = (W - (int)strlen(ssid) * FONT_W * s_ssid) / 2;
+    if (sx < 4) sx = 4;
+    font_puts_scaled(sx, y_ssid, ssid, C_TITLE_R, C_TITLE_G, C_TITLE_B, s_ssid);
+
+    font_puts_scaled((W - (int)strlen(l2) * FONT_W * s_label) / 2, y_l2,
+                     l2, C_LABEL_R, C_LABEL_G, C_LABEL_B, s_label);
+    font_puts_scaled((W - (int)strlen(url) * FONT_W * s_url) / 2, y_url,
+                     url, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, s_url);
 
     board_lcd_flush();
 }
