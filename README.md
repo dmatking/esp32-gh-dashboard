@@ -37,12 +37,17 @@ On first boot, the device creates a WiFi access point called **GithubDashboard**
 
 1. Connect your phone or laptop to **GithubDashboard**
 2. A setup page should open automatically — if it doesn't, open a browser and go to **http://192.168.4.1/**
-3. Enter your WiFi network name, password, GitHub username, and GitHub token
+3. Fill in the form:
+   - **WiFi Network** and **Password**
+   - **GitHub Username** and **GitHub Token**
+   - **Timezone** — pick from the dropdown, or enter a custom POSIX string
+   - **Daily refresh hour** — what hour (0–23) to fetch fresh data each day (default: 6)
+   - **Screen cycle time** — seconds between screens (default: 30)
 4. Tap **Save & Connect**
 
-The device saves your credentials and reboots into the dashboard. Subsequent boots connect directly without the setup screen.
+The device saves your settings and connects to your WiFi. Subsequent boots connect directly.
 
-**To re-run setup** (change WiFi or credentials): hold the **BOOT button for 3 seconds** while the device is starting up.
+**To change any setting**: hold the **BOOT button for 3 seconds** while the device is starting up. The setup page reopens with your existing values pre-filled — change only what you need and tap Save & Connect again.
 
 ---
 
