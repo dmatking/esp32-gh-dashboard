@@ -33,6 +33,7 @@ typedef struct {
 } gh_repo_t;
 
 typedef struct {
+    char      username[64];
     gh_repo_t repos[GH_MAX_REPOS];
     int       count;
     uint32_t  total_views;

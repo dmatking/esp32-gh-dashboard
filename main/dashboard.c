@@ -361,7 +361,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
         font_puts_right(W - PAD, y + 4, clock_str, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     }
     y += FONT_H * 3 + 8;
-    font_puts_scaled(PAD, y, "dmatking", C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    font_puts_scaled(PAD, y, stats->username, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
     y += FONT_H * 2 + 30;
 
     draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
@@ -517,5 +517,32 @@ void dashboard_draw_error(const char *msg)
     font_puts_scaled(40, H / 2 - FONT_H * 3, "Error", 0xFF, 0x44, 0x44, 4);
     font_puts_scaled(40, H / 2 + FONT_H * 2, msg,
                      C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+    board_lcd_flush();
+}
+
+void dashboard_draw_provisioning(const char *title, const char *ssid)
+{
+    board_lcd_clear();
+    fill_rect(0, 0, W, H, C_BG_R, C_BG_G, C_BG_B);
+
+    font_puts_scaled((W - (int)strlen(title) * FONT_W * 4) / 2, 180,
+                     title, 0x00, 0xCC, 0xFF, 4);
+
+    const char *l1 = "Connect phone to WiFi:";
+    font_puts_scaled((W - (int)strlen(l1) * FONT_W * 2) / 2, 330,
+                     l1, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+
+    int sx = (W - (int)strlen(ssid) * FONT_W * 3) / 2;
+    if (sx < 20) sx = 20;
+    font_puts_scaled(sx, 374, ssid, C_TITLE_R, C_TITLE_G, C_TITLE_B, 3);
+
+    const char *l2 = "No popup? Open browser:";
+    font_puts_scaled((W - (int)strlen(l2) * FONT_W * 2) / 2, 480,
+                     l2, C_LABEL_R, C_LABEL_G, C_LABEL_B, 2);
+
+    const char *url = "http://192.168.4.1/";
+    font_puts_scaled((W - (int)strlen(url) * FONT_W * 2) / 2, 524,
+                     url, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
+
     board_lcd_flush();
 }

@@ -136,6 +136,7 @@ bool github_fetch_stats(gh_stats_t *stats)
     if (!buf) return false;
 
     memset(stats, 0, sizeof(*stats));
+    strncpy(stats->username, s_gh_username, sizeof(stats->username) - 1);
 
     // 1. Fetch all user repos via GraphQL (names, descriptions, stars, forks)
     char gql[512];

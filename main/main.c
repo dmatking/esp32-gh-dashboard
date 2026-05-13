@@ -3,6 +3,7 @@
 //
 // GitHub stats dashboard for Waveshare ESP32-P4 720x720
 
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include "freertos/FreeRTOS.h"
@@ -50,18 +51,24 @@ static bool wait_or_button(int timeout_ms)
 
 static const char *TAG = "dashboard";
 
+static bool s_prov_failed;
+
+static void connect_failed_display(const char *ap_ssid, void *ctx)
+{
+    (void)ap_ssid;
+    (void)ctx;
+    s_prov_failed = true;
+}
+
 static void portal_display(const char *ap_ssid, void *ctx)
 {
     (void)ctx;
-    char msg[96];
-    snprintf(msg, sizeof(msg), "Setup mode - connect\nphone to WiFi:\n%s", ap_ssid);
-    dashboard_draw_error(msg);
+    const char *title = s_prov_failed ? "Wrong Password?" : "WiFi Setup";
+    s_prov_failed = false;
+    dashboard_draw_provisioning(title, ap_ssid);
 }
 
-#define CYCLE_MS     (CONFIG_DASHBOARD_CYCLE_SEC * 1000)
-#define REFRESH_HOUR  CONFIG_DASHBOARD_REFRESH_HOUR
-
-static void sync_time(void)
+static void sync_time(const char *tz)
 {
     esp_sntp_config_t cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
     esp_netif_sntp_init(&cfg);
@@ -69,7 +76,7 @@ static void sync_time(void)
     esp_netif_sntp_deinit();
 
     if (err == ESP_OK) {
-        setenv("TZ", CONFIG_DASHBOARD_TIMEZONE, 1);
+        setenv("TZ", tz, 1);
         tzset();
         time_t now = time(NULL);
         struct tm t;
@@ -81,14 +88,14 @@ static void sync_time(void)
     }
 }
 
-static bool should_refresh(int *last_fetch_yday)
+static bool should_refresh(int *last_fetch_yday, int refresh_hour)
 {
     time_t now = time(NULL);
     struct tm t;
     localtime_r(&now, &t);
-    if (t.tm_year + 1900 < 2024) return false;
-    if (t.tm_hour < REFRESH_HOUR)  return false;
-    if (t.tm_yday == *last_fetch_yday) return false;
+    if (t.tm_year + 1900 < 2024)        return false;
+    if (t.tm_hour < refresh_hour)        return false;
+    if (t.tm_yday == *last_fetch_yday)   return false;
     return true;
 }
 
@@ -105,25 +112,65 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_hosted_init());
     ESP_ERROR_CHECK(esp_hosted_connect_to_slave());
 
+    static const wifi_prov_option_t tz_options[] = {
+        { "US Eastern (ET)",            "EST5EDT,M3.2.0,M11.1.0"          },
+        { "US Central (CT)",            "CST6CDT,M3.2.0,M11.1.0"          },
+        { "US Mountain (MT)",           "MST7MDT,M3.2.0,M11.1.0"          },
+        { "US Mountain - Arizona",      "MST7"                             },
+        { "US Pacific (PT)",            "PST8PDT,M3.2.0,M11.1.0"          },
+        { "US Alaska",                  "AKST9AKDT,M3.2.0,M11.1.0"        },
+        { "US Hawaii",                  "HST10"                            },
+        { "Canada - Newfoundland",      "NST3:30NDT,M3.2.0,M11.1.0"       },
+        { "UK / Ireland",               "GMT0BST,M3.5.0/1,M10.5.0"        },
+        { "Central Europe (CET)",       "CET-1CEST,M3.5.0,M10.5.0/3"     },
+        { "Eastern Europe (EET)",       "EET-2EEST,M3.5.0/3,M10.5.0/4"   },
+        { "Moscow",                     "MSK-3"                            },
+        { "India (IST)",                "IST-5:30"                         },
+        { "China / Singapore",          "CST-8"                            },
+        { "Japan / Korea",              "JST-9"                            },
+        { "Australia Eastern (AEST)",   "AEST-10AEDT,M10.1.0,M4.1.0/3"   },
+        { "Australia Central (ACST)",   "ACST-9:30ACDT,M10.1.0,M4.1.0/3" },
+        { "Australia Western (AWST)",   "AWST-8"                           },
+        { "New Zealand",                "NZST-12NZDT,M9.5.0,M4.1.0/3"    },
+        { "UTC",                        "UTC0"                             },
+    };
     static const wifi_prov_field_t prov_fields[] = {
-        { .key = "gh_user",  .label = "GitHub Username",
+        { .key = "gh_user",
+          .label = "GitHub Username",
           .placeholder = "your-github-username" },
-        { .key = "gh_token", .label = "GitHub Token",
+        { .key = "gh_token",
+          .label = "GitHub Token (classic, repo scope)",
           .placeholder = "ghp_...", .secret = true },
+        { .key = "tz",
+          .label = "Timezone",
+          .options = tz_options,
+          .option_count = sizeof(tz_options) / sizeof(tz_options[0]) },
+        { .key = "tz_custom",
+          .label = "Custom timezone (optional, overrides above)",
+          .placeholder = "e.g. EST5EDT,M3.2.0,M11.1.0" },
+        { .key = "refresh_hr",
+          .label = "Daily refresh hour (0-23)",
+          .input_type = "number", .input_min = "0", .input_max = "23",
+          .placeholder = "6" },
+        { .key = "cycle_sec",
+          .label = "Screen cycle time (seconds)",
+          .input_type = "number", .input_min = "5", .input_max = "300",
+          .placeholder = "30" },
     };
     wifi_prov_config_t prov_cfg = {
-        .ap_ssid      = "DashboardSetup",
-        .boot_gpio    = BOOT_BUTTON_GPIO,
-        .on_portal    = portal_display,
-        .extra_fields = prov_fields,
-        .extra_count  = 2,
+        .ap_ssid           = "GithubDashboard",
+        .boot_gpio         = BOOT_BUTTON_GPIO,
+        .on_portal         = portal_display,
+        .on_connect_failed = connect_failed_display,
+        .extra_fields      = prov_fields,
+        .extra_count       = sizeof(prov_fields) / sizeof(prov_fields[0]),
     };
     if (!wifi_prov_start(&prov_cfg)) {
         dashboard_draw_error("WiFi failed");
         vTaskDelay(portMAX_DELAY);
     }
 
-    // Read runtime credentials from NVS and pass to API modules
+    // Read credentials from NVS
     char gh_user[64]  = { 0 };
     char gh_token[128] = { 0 };
     wifi_prov_get("gh_user",  gh_user,  sizeof(gh_user));
@@ -132,7 +179,23 @@ void app_main(void)
                            gh_token[0] ? gh_token : NULL);
     traffic_csv_set_username(gh_user[0] ? gh_user : NULL);
 
-    sync_time();
+    // Timezone: custom field overrides dropdown selection
+    char tz_sel[64]  = { 0 };
+    char tz_cust[64] = { 0 };
+    wifi_prov_get("tz",        tz_sel,  sizeof(tz_sel));
+    wifi_prov_get("tz_custom", tz_cust, sizeof(tz_cust));
+    const char *tz = tz_cust[0] ? tz_cust
+                   : tz_sel[0]  ? tz_sel
+                   : CONFIG_DASHBOARD_TIMEZONE;
+
+    // Refresh hour and cycle time (fall back to Kconfig defaults)
+    char rh_str[8] = { 0 }, cs_str[8] = { 0 };
+    wifi_prov_get("refresh_hr", rh_str, sizeof(rh_str));
+    wifi_prov_get("cycle_sec",  cs_str, sizeof(cs_str));
+    int refresh_hour = rh_str[0] ? atoi(rh_str) : CONFIG_DASHBOARD_REFRESH_HOUR;
+    int cycle_ms     = (cs_str[0] ? atoi(cs_str) : CONFIG_DASHBOARD_CYCLE_SEC) * 1000;
+
+    sync_time(tz);
 
     static gh_stats_t stats;
 
@@ -153,7 +216,7 @@ void app_main(void)
     int screen_idx = -1;
 
     while (1) {
-        if (should_refresh(&last_fetch_yday)) {
+        if (should_refresh(&last_fetch_yday, refresh_hour)) {
             ESP_LOGI(TAG, "Scheduled refresh...");
             if (github_fetch_stats(&stats)) {
                 time_t now = time(NULL);
@@ -169,7 +232,7 @@ void app_main(void)
             dashboard_draw_repo(&stats, screen_idx);
         }
 
-        wait_or_button(CYCLE_MS);
+        wait_or_button(cycle_ms);
 
         screen_idx++;
         while (screen_idx < stats.count && stats.repos[screen_idx].hide)

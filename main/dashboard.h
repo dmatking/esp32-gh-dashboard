@@ -15,3 +15,7 @@ void dashboard_draw_fetching(void);
 
 // Draw an error screen.
 void dashboard_draw_error(const char *msg);
+
+// Draw the WiFi provisioning screen.  title is shown at the top (e.g. "WiFi Setup"
+// or "Wrong Password?"); ssid is the AP name the user should connect to.
+void dashboard_draw_provisioning(const char *title, const char *ssid);

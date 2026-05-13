@@ -1,23 +1,19 @@
 menu "Dashboard Configuration"
 
-config WIFI_SSID
-    string "WiFi SSID"
-    default ""
-
-config WIFI_PASS
-    string "WiFi Password"
-    default ""
-
 config GH_USERNAME
-    string "GitHub username"
-    default "dmatking"
-
-config GH_TOKEN
-    string "GitHub personal access token"
+    string "GitHub username (compile-time fallback)"
     default ""
     help
-        Needs repo and read:org scope. Traffic API requires auth.
-        Load from ~/.esp_creds via SDKCONFIG_DEFAULTS.
+        Optional. Normally set at runtime via the first-boot provisioning
+        portal and stored in NVS. Only used if NVS is empty.
+
+config GH_TOKEN
+    string "GitHub personal access token (compile-time fallback)"
+    default ""
+    help
+        Optional. Normally set at runtime via the first-boot provisioning
+        portal and stored in NVS. Only used if NVS is empty.
+        Needs repo scope. Traffic API requires auth.
 
 config DASHBOARD_CYCLE_SEC
     int "Screen cycle interval (seconds)"
