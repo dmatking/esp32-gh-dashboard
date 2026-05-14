@@ -7,3 +7,4 @@
 // Boards that have an LCD should override this with a real implementation.
 __attribute__((weak)) void board_lcd_sanity_test(void) {}
 __attribute__((weak)) void board_lcd_fill(uint16_t color) { (void)color; }
+__attribute__((weak)) int  board_get_button_gpio(void) { return -1; }

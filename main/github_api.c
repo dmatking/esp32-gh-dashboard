@@ -17,6 +17,12 @@ static const char *TAG = "github_api";
 
 static char s_gh_username[64]  = CONFIG_GH_USERNAME;
 static char s_gh_token[128]    = CONFIG_GH_TOKEN;
+static int  s_last_http_status = 0;
+
+int github_last_http_status(void)
+{
+    return s_last_http_status;
+}
 
 void github_set_credentials(const char *username, const char *token)
 {
@@ -105,6 +111,8 @@ static bool gh_graphql(const char *query_body, char *out_buf, int buf_cap)
     esp_err_t err = esp_http_client_perform(client);
     int status    = esp_http_client_get_status_code(client);
     esp_http_client_cleanup(client);
+
+    s_last_http_status = (err == ESP_OK) ? status : 0;
 
     if (err != ESP_OK || status != 200) {
         ESP_LOGW(TAG, "GraphQL → err=%d status=%d", err, status);

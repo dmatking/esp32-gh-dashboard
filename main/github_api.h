@@ -55,3 +55,8 @@ void github_set_credentials(const char *username, const char *token);
 // Fetch all user repos via GraphQL, traffic via CSV.
 // Deltas are computed day-over-day from latest.csv (no prev needed).
 bool github_fetch_stats(gh_stats_t *stats);
+
+// Returns the HTTP status of the most recent GraphQL request (0 if none, or
+// network error before status was available).  Used to distinguish auth
+// failures (401/403) from transport errors after github_fetch_stats() fails.
+int github_last_http_status(void);

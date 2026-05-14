@@ -73,6 +73,12 @@ typedef struct {
     // Optional extra fields appended to the provisioning form.
     const wifi_prov_field_t *extra_fields;
     int                      extra_count;
+
+    // If true, skip the stored-credential fast path and go straight to the
+    // captive portal.  Saved values are preserved (non-secret fields
+    // pre-populate the form).  Used to recover from app-level auth failures
+    // without wiping WiFi creds.
+    bool force_portal;
 } wifi_prov_config_t;
 
 // Connect to WiFi using stored credentials, or run the captive-portal

@@ -198,24 +198,26 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     // Small-screen layout (320×240, CYD)
     // -----------------------------------------------------------------------
     if (W <= 320) {
-        const int PAD   = 4;
-        const int BAR_X = PAD + 7 * FONT_W;  // 60 — clears "Clones " label
-        const int BAR_W = W - BAR_X - PAD;
-        const int BAR_H = 8;
+        const int PAD = 4;
         int y = 4;
 
-        // Name (truncate to 15 chars so scale-2 fits) + clock
-        char name_buf[16];
-        strncpy(name_buf, r->name, 15);
-        name_buf[15] = '\0';
-        font_puts_scaled(PAD, y, name_buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, 2);
+        // Title: scale 2 if it fits (≤15 chars), else scale 1.
+        const int name_len   = (int)strlen(r->name);
+        const int title_scl  = (name_len <= 15) ? 2 : 1;
+        char name_buf[40];
+        const int title_max  = (title_scl == 2) ? 15 : 39;
+        int nlen = name_len < title_max ? name_len : title_max;
+        memcpy(name_buf, r->name, nlen);
+        name_buf[nlen] = '\0';
+        font_puts_scaled(PAD, y, name_buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, title_scl);
         {
             time_t now = time(NULL); struct tm t; localtime_r(&now, &t);
             int h12 = t.tm_hour % 12; if (h12 == 0) h12 = 12;
             char clk[8]; snprintf(clk, sizeof(clk), "%d:%02d", h12, t.tm_min);
-            font_puts_right(W - PAD, y + 4, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            int clk_y = y + (title_scl == 2 ? 4 : 0);
+            font_puts_right(W - PAD, clk_y, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
         }
-        y += FONT_H * 2 + 4;  // 36
+        y += FONT_H * title_scl + 4;
 
         // Stars / forks
         if (r->stars || r->forks) {
@@ -223,69 +225,92 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
             if (r->stars) { char t[12]; snprintf(t, sizeof(t), "* %d  ", r->stars);  strncat(meta, t, sizeof(meta)-strlen(meta)-1); }
             if (r->forks) { char t[12]; snprintf(t, sizeof(t), "Y %d", r->forks);    strncat(meta, t, sizeof(meta)-strlen(meta)-1); }
             font_puts_scaled(PAD, y, meta, C_STARS_R, C_STARS_G, C_STARS_B, 1);
+            y += FONT_H + 4;
         }
-        y += FONT_H + 4;  // 56
 
-        // Description (single line, 36 chars max)
+        // Description: up to 2 lines, word-wrapped at last space before col 39.
         if (r->desc[0]) {
-            char line[37]; strncpy(line, r->desc, 36); line[36] = '\0';
-            font_puts_scaled(PAD, y, line, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            const int LINE_MAX = 39;
+            const char *p = r->desc;
+            int remaining = (int)strlen(p);
+            for (int line = 0; line < 2 && remaining > 0; line++) {
+                int take = remaining;
+                if (take > LINE_MAX) {
+                    take = LINE_MAX;
+                    if (line < 1) {  // word-wrap on first line only
+                        for (int i = take; i > LINE_MAX - 12 && i > 0; i--) {
+                            if (p[i] == ' ') { take = i; break; }
+                        }
+                    }
+                }
+                char buf[40] = { 0 };
+                memcpy(buf, p, take);
+                font_puts_scaled(PAD, y, buf, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+                y += FONT_H;
+                p += take;
+                remaining -= take;
+                while (remaining > 0 && *p == ' ') { p++; remaining--; }
+            }
+            y += 4;
         }
-        y += FONT_H + 8;  // 80
 
         draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
-        y += 6;  // 86
+        y += 4;
 
-        // Views
-        font_puts_scaled(PAD, y, "Views:", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 1);
-        draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->views, r->view_uniques,
+        const int BAR_H = 12;
+        const int BAR_W = W - PAD * 2;
+
+        // Views — label + big count + delta, chunky bar, then unique sub-line
+        font_puts_scaled(PAD, y, "Views", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 1);
+        {
+            char n[12]; snfmt_count(n, sizeof(n), r->views);
+            int cx = PAD + 7 * FONT_W;  // after "Views  "
+            font_puts_scaled(cx, y - 8, n, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
+            cx += strlen(n) * FONT_W * 2 + FONT_W;
+            if (r->views_delta) {
+                char d[14]; snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->views_delta);
+                font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1);
+            }
+        }
+        y += FONT_H * 2 + 2;
+        draw_bar_split(PAD, y, BAR_W, BAR_H, r->views, r->view_uniques,
                        r->views ? r->views : 1, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
-        y += BAR_H + 4;  // 98
+        y += BAR_H + 2;
         {
-            char n[12], u[12], d[14], ud[14];
-            snfmt_count(n, sizeof(n), r->views);
-            snfmt_count(u, sizeof(u), r->view_uniques);
-            int cx = BAR_X;
-            font_puts_scaled(cx, y, n, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(n) * FONT_W;
-            if (r->views_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->views_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
-            font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
-            font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
-            if (r->view_uniques_delta) { snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)r->view_uniques_delta); font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(ud) * FONT_W; }
-            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            char u[12]; snfmt_count(u, sizeof(u), r->view_uniques);
+            char line[64];
+            if (r->view_uniques_delta)
+                snprintf(line, sizeof(line), "%s unique (+%lu)", u, (unsigned long)r->view_uniques_delta);
+            else
+                snprintf(line, sizeof(line), "%s unique", u);
+            font_puts_scaled(PAD, y, line, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
         }
-        y += FONT_H + 10;  // 124
+        y += FONT_H + 6;
 
-        // Clones
-        font_puts_scaled(PAD, y, "Clones:", C_CLONES_R, C_CLONES_G, C_CLONES_B, 1);
-        draw_bar_split(BAR_X, y + 2, BAR_W, BAR_H, r->clones, r->clone_uniques,
+        // Clones — same shape
+        font_puts_scaled(PAD, y, "Clones", C_CLONES_R, C_CLONES_G, C_CLONES_B, 1);
+        {
+            char n[12]; snfmt_count(n, sizeof(n), r->clones);
+            int cx = PAD + 7 * FONT_W;
+            font_puts_scaled(cx, y - 8, n, C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
+            cx += strlen(n) * FONT_W * 2 + FONT_W;
+            if (r->clones_delta) {
+                char d[14]; snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->clones_delta);
+                font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1);
+            }
+        }
+        y += FONT_H * 2 + 2;
+        draw_bar_split(PAD, y, BAR_W, BAR_H, r->clones, r->clone_uniques,
                        r->clones ? r->clones : 1, C_CLONES_R, C_CLONES_G, C_CLONES_B);
-        y += BAR_H + 4;  // 136
+        y += BAR_H + 2;
         {
-            char n[12], u[12], d[14], ud[14];
-            snfmt_count(n, sizeof(n), r->clones);
-            snfmt_count(u, sizeof(u), r->clone_uniques);
-            int cx = BAR_X;
-            font_puts_scaled(cx, y, n, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(n) * FONT_W;
-            if (r->clones_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->clones_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
-            font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
-            font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
-            if (r->clone_uniques_delta) { snprintf(ud, sizeof(ud), "(+%lu)", (unsigned long)r->clone_uniques_delta); font_puts_scaled(cx, y, ud, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(ud) * FONT_W; }
-            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
-        }
-        y += FONT_H + 8;  // 160
-
-        // 14-day graph in the remaining space
-        {
-            draw_hline(PAD, y, W - PAD * 2, 0x22, 0x22, 0x44);
-            y += 2;
-            font_puts_scaled(PAD, y, "14d", C_DIM_R + 0x20, C_DIM_G + 0x20, C_DIM_B + 0x40, 1);
-            y += 2;
-            int gh = H - y - 2;
-            if (gh > 10)
-                draw_mini_graph(PAD, y, W - PAD * 2, gh,
-                                r->history_views,  C_VIEWS_R,  C_VIEWS_G,  C_VIEWS_B,
-                                r->history_clones, C_CLONES_R, C_CLONES_G, C_CLONES_B,
-                                HISTORY_DAYS);
+            char u[12]; snfmt_count(u, sizeof(u), r->clone_uniques);
+            char line[64];
+            if (r->clone_uniques_delta)
+                snprintf(line, sizeof(line), "%s unique (+%lu)", u, (unsigned long)r->clone_uniques_delta);
+            else
+                snprintf(line, sizeof(line), "%s unique", u);
+            font_puts_scaled(PAD, y, line, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
         }
 
         board_lcd_flush();
@@ -495,7 +520,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
             if (stats->total_views_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_views_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
             font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
             font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
-            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            font_puts_scaled(cx, y, " unique", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
         }
         y += FONT_H + 6;  // 102
 
@@ -515,7 +540,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
             if (stats->total_clones_delta) { snprintf(d, sizeof(d), "(+%lu)", (unsigned long)stats->total_clones_delta); font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1); cx += strlen(d) * FONT_W; }
             font_puts_scaled(cx, y, "  ", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += 2 * FONT_W;
             font_puts_scaled(cx, y, u, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1); cx += strlen(u) * FONT_W;
-            font_puts_scaled(cx, y, " uniq", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            font_puts_scaled(cx, y, " unique", C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
         }
         y += FONT_H + 6;  // 136
 

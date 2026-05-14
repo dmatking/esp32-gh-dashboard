@@ -22,12 +22,14 @@
 #include "traffic_csv.h"
 #include "dashboard.h"
 
-#define BOOT_BUTTON_GPIO  35   // ESP32-P4 BOOT/STRAPPING pin, active-low
+static int s_button_gpio = -1;  // resolved from board_get_button_gpio() at startup
 
 static void button_init(void)
 {
+    s_button_gpio = board_get_button_gpio();
+    if (s_button_gpio < 0) return;
     gpio_config_t cfg = {
-        .pin_bit_mask = 1ULL << BOOT_BUTTON_GPIO,
+        .pin_bit_mask = 1ULL << s_button_gpio,
         .mode         = GPIO_MODE_INPUT,
         .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -37,13 +39,18 @@ static void button_init(void)
 }
 
 // Wait up to timeout_ms, return early if BOOT button pressed.
+// If the board has no button, behaves as a plain delay.
 static bool wait_or_button(int timeout_ms)
 {
+    if (s_button_gpio < 0) {
+        vTaskDelay(pdMS_TO_TICKS(timeout_ms));
+        return false;
+    }
     const int POLL_MS = 50;
     for (int elapsed = 0; elapsed < timeout_ms; elapsed += POLL_MS) {
         vTaskDelay(pdMS_TO_TICKS(POLL_MS));
-        if (gpio_get_level(BOOT_BUTTON_GPIO) == 0) {
-            while (gpio_get_level(BOOT_BUTTON_GPIO) == 0)
+        if (gpio_get_level(s_button_gpio) == 0) {
+            while (gpio_get_level(s_button_gpio) == 0)
                 vTaskDelay(pdMS_TO_TICKS(20));
             return true;
         }
@@ -54,6 +61,40 @@ static bool wait_or_button(int timeout_ms)
 static const char *TAG = "dashboard";
 
 static bool s_prov_failed;
+static bool s_github_failed;  // set if previous boot failed GitHub auth
+
+// NVS namespace/key used to persist the reason for forcing the portal across
+// a reboot.  Lives in wifi_prov's namespace so we don't need a second one.
+#define FAIL_REASON_NVS_NS   "wifi_prov"
+#define FAIL_REASON_NVS_KEY  "fail_reason"
+#define FAIL_REASON_GH_AUTH  "gh_auth"
+
+static void load_and_clear_fail_reason(void)
+{
+    nvs_handle_t nvs;
+    if (nvs_open(FAIL_REASON_NVS_NS, NVS_READWRITE, &nvs) != ESP_OK) return;
+    char reason[16] = { 0 };
+    size_t len = sizeof(reason);
+    if (nvs_get_str(nvs, FAIL_REASON_NVS_KEY, reason, &len) == ESP_OK) {
+        if (strcmp(reason, FAIL_REASON_GH_AUTH) == 0) s_github_failed = true;
+        nvs_erase_key(nvs, FAIL_REASON_NVS_KEY);
+        nvs_commit(nvs);
+    }
+    nvs_close(nvs);
+}
+
+static void set_fail_reason_and_restart(const char *reason)
+{
+    nvs_handle_t nvs;
+    if (nvs_open(FAIL_REASON_NVS_NS, NVS_READWRITE, &nvs) == ESP_OK) {
+        nvs_set_str(nvs, FAIL_REASON_NVS_KEY, reason);
+        nvs_commit(nvs);
+        nvs_close(nvs);
+    }
+    ESP_LOGW(TAG, "Restarting to re-enter provisioning (reason=%s)", reason);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+}
 
 static void connect_failed_display(const char *ap_ssid, void *ctx)
 {
@@ -65,8 +106,12 @@ static void connect_failed_display(const char *ap_ssid, void *ctx)
 static void portal_display(const char *ap_ssid, void *ctx)
 {
     (void)ctx;
-    const char *title = s_prov_failed ? "Wrong Password?" : "WiFi Setup";
+    const char *title;
+    if (s_github_failed)      title = "GitHub Auth Failed";
+    else if (s_prov_failed)   title = "Wrong Password?";
+    else                      title = "WiFi Setup";
     s_prov_failed = false;
+    s_github_failed = false;
     dashboard_draw_provisioning(title, ap_ssid);
 }
 
@@ -107,6 +152,8 @@ void app_main(void)
 
     board_init();
     button_init();
+
+    load_and_clear_fail_reason();
 
     dashboard_draw_fetching();
 
@@ -163,11 +210,12 @@ void app_main(void)
     };
     wifi_prov_config_t prov_cfg = {
         .ap_ssid           = "GithubDashboard",
-        .boot_gpio         = BOOT_BUTTON_GPIO,
+        .boot_gpio         = s_button_gpio,
         .on_portal         = portal_display,
         .on_connect_failed = connect_failed_display,
         .extra_fields      = prov_fields,
         .extra_count       = sizeof(prov_fields) / sizeof(prov_fields[0]),
+        .force_portal      = s_github_failed,
     };
     if (!wifi_prov_start(&prov_cfg)) {
         dashboard_draw_error("WiFi failed");
@@ -205,6 +253,10 @@ void app_main(void)
 
     dashboard_draw_fetching();
     if (!github_fetch_stats(&stats)) {
+        int s = github_last_http_status();
+        if (s == 401 || s == 403) {
+            set_fail_reason_and_restart(FAIL_REASON_GH_AUTH);
+        }
         dashboard_draw_error("Fetch failed");
         vTaskDelay(portMAX_DELAY);
     }

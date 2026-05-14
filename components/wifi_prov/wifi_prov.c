@@ -412,6 +412,10 @@ bool wifi_prov_start(const wifi_prov_config_t *cfg)
             }
         }
     }
+    if (cfg && cfg->force_portal) {
+        ESP_LOGI(TAG, "force_portal requested by caller");
+        s_force_portal = true;
+    }
 
     // Try to load stored credentials
     char ssid[64] = { 0 };

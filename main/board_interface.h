@@ -46,3 +46,8 @@ uint16_t board_lcd_get_pixel_raw(int x, int y);
 
 // Extract RGB888 components from a raw pixel value.
 void board_lcd_unpack_rgb(uint16_t color, uint8_t *r, uint8_t *g, uint8_t *b);
+
+// GPIO number for the board's dedicated boot/user button (active-low, with
+// internal pullup), or -1 if the board has no such button. A weak default
+// returns -1 (no button).
+int board_get_button_gpio(void);

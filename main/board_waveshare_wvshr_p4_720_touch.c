@@ -221,6 +221,7 @@ void board_init(void)
 
 const char *board_get_name(void) { return BOARD_NAME; }
 bool        board_has_lcd(void)  { return s_panel != NULL; }
+int         board_get_button_gpio(void) { return 35; }  // BOOT/strapping pin
 
 int board_lcd_width(void)  { return LCD_W; }
 int board_lcd_height(void) { return LCD_H; }
