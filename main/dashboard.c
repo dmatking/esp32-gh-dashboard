@@ -7,6 +7,7 @@
 #include "dashboard.h"
 #include "board_interface.h"
 #include "font8x16.h"
+#include "layout_cyd.h"
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -198,35 +199,42 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     // Small-screen layout (320×240, CYD)
     // -----------------------------------------------------------------------
     if (W <= 320) {
-        const int PAD = 4;
-        int y = 4;
+        const layout_cyd_repo_t *L = &cyd_repo_layout;
 
-        // Title: always scale 1 so vertical layout is stable across repos.
-        // 32 chars max leaves room for the clock on the right.
+        // Helper: draw a text element (handles right-alignment).
+        #define DRAW_TEXT(el, str) do {                              \
+            if ((el).right_align)                                    \
+                font_puts_right((el).x, (el).y, (str),                \
+                                (el).r, (el).g, (el).b, (el).scale); \
+            else                                                     \
+                font_puts_scaled((el).x, (el).y, (str),               \
+                                 (el).r, (el).g, (el).b, (el).scale);\
+        } while (0)
+
+        // ----- Top zone: flow downward, starting at title.y -----
         char name_buf[33];
-        const int name_len = (int)strlen(r->name);
-        int nlen = name_len < 32 ? name_len : 32;
-        memcpy(name_buf, r->name, nlen);
-        name_buf[nlen] = '\0';
-        font_puts_scaled(PAD, y, name_buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, 1);
+        int nlen = (int)strlen(r->name);
+        if (nlen > 32) nlen = 32;
+        memcpy(name_buf, r->name, nlen); name_buf[nlen] = '\0';
+        DRAW_TEXT(L->title, name_buf);
+
         {
             time_t now = time(NULL); struct tm t; localtime_r(&now, &t);
             int h12 = t.tm_hour % 12; if (h12 == 0) h12 = 12;
             char clk[8]; snprintf(clk, sizeof(clk), "%d:%02d", h12, t.tm_min);
-            font_puts_right(W - PAD, y, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            DRAW_TEXT(L->clock, clk);
         }
-        y += FONT_H + 4;
 
-        // Stars / forks
+        int top_y = L->title.y + FONT_H + 4;
+
         if (r->stars || r->forks) {
             char meta[32] = "";
             if (r->stars) { char t[12]; snprintf(t, sizeof(t), "* %d  ", r->stars);  strncat(meta, t, sizeof(meta)-strlen(meta)-1); }
             if (r->forks) { char t[12]; snprintf(t, sizeof(t), "Y %d", r->forks);    strncat(meta, t, sizeof(meta)-strlen(meta)-1); }
-            font_puts_scaled(PAD, y, meta, C_STARS_R, C_STARS_G, C_STARS_B, 1);
-            y += FONT_H + 4;
+            font_puts_scaled(L->stars.x, top_y, meta, L->stars.r, L->stars.g, L->stars.b, L->stars.scale);
+            top_y += FONT_H + 4;
         }
 
-        // Description: up to 2 lines, word-wrapped at last space before col 39.
         if (r->desc[0]) {
             const int LINE_MAX = 39;
             const char *p = r->desc;
@@ -235,7 +243,7 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
                 int take = remaining;
                 if (take > LINE_MAX) {
                     take = LINE_MAX;
-                    if (line < 1) {  // word-wrap on first line only
+                    if (line < 1) {
                         for (int i = take; i > LINE_MAX - 12 && i > 0; i--) {
                             if (p[i] == ' ') { take = i; break; }
                         }
@@ -243,42 +251,31 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
                 }
                 char buf[40] = { 0 };
                 memcpy(buf, p, take);
-                font_puts_scaled(PAD, y, buf, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
-                y += FONT_H;
+                font_puts_scaled(L->desc.x, top_y, buf, L->desc.r, L->desc.g, L->desc.b, L->desc.scale);
+                top_y += FONT_H;
                 p += take;
                 remaining -= take;
                 while (remaining > 0 && *p == ' ') { p++; remaining--; }
             }
-            y += 4;
+            top_y += 4;
         }
 
-        // Separator sits right under the variable-height top zone.
-        draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
+        // Separator sits just below the variable-height top zone.
+        draw_hline(L->title.x, top_y, W - L->title.x * 2, 0x33, 0x33, 0x55);
 
-        // Stats pane is anchored to a fixed Y so bars don't shift around
-        // when the description is shorter or absent.
-        const int STATS_Y = 88;
-        y = STATS_Y;
-
-        const int BAR_H = 12;
-        const int BAR_W = W - PAD * 2;
-
-        // Views — label + big count + delta, chunky bar, then unique sub-line
-        font_puts_scaled(PAD, y, "Views", C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 1);
+        // ----- Stats pane (absolute positions from the layout) -----
+        DRAW_TEXT(L->views_label, "Views");
         {
             char n[12]; snfmt_count(n, sizeof(n), r->views);
-            int cx = PAD + 7 * FONT_W;  // after "Views  "
-            font_puts_scaled(cx, y - 8, n, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B, 2);
-            cx += strlen(n) * FONT_W * 2 + FONT_W;
+            DRAW_TEXT(L->views_bignum, n);
             if (r->views_delta) {
                 char d[14]; snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->views_delta);
-                font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1);
+                DRAW_TEXT(L->views_delta, d);
             }
         }
-        y += FONT_H * 2 + 2;
-        draw_bar_split(PAD, y, BAR_W, BAR_H, r->views, r->view_uniques,
-                       r->views ? r->views : 1, C_VIEWS_R, C_VIEWS_G, C_VIEWS_B);
-        y += BAR_H + 2;
+        draw_bar_split(L->views_bar.x, L->views_bar.y, L->views_bar.w, L->views_bar.h,
+                       r->views, r->view_uniques, r->views ? r->views : 1,
+                       L->views_label.r, L->views_label.g, L->views_label.b);
         {
             char u[12]; snfmt_count(u, sizeof(u), r->view_uniques);
             char line[64];
@@ -286,26 +283,21 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
                 snprintf(line, sizeof(line), "%s unique (+%lu)", u, (unsigned long)r->view_uniques_delta);
             else
                 snprintf(line, sizeof(line), "%s unique", u);
-            font_puts_scaled(PAD, y, line, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            DRAW_TEXT(L->views_uniq, line);
         }
-        y += FONT_H + 6;
 
-        // Clones — same shape
-        font_puts_scaled(PAD, y, "Clones", C_CLONES_R, C_CLONES_G, C_CLONES_B, 1);
+        DRAW_TEXT(L->clones_label, "Clones");
         {
             char n[12]; snfmt_count(n, sizeof(n), r->clones);
-            int cx = PAD + 7 * FONT_W;
-            font_puts_scaled(cx, y - 8, n, C_CLONES_R, C_CLONES_G, C_CLONES_B, 2);
-            cx += strlen(n) * FONT_W * 2 + FONT_W;
+            DRAW_TEXT(L->clones_bignum, n);
             if (r->clones_delta) {
                 char d[14]; snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->clones_delta);
-                font_puts_scaled(cx, y, d, C_GREEN_R, C_GREEN_G, C_GREEN_B, 1);
+                DRAW_TEXT(L->clones_delta, d);
             }
         }
-        y += FONT_H * 2 + 2;
-        draw_bar_split(PAD, y, BAR_W, BAR_H, r->clones, r->clone_uniques,
-                       r->clones ? r->clones : 1, C_CLONES_R, C_CLONES_G, C_CLONES_B);
-        y += BAR_H + 2;
+        draw_bar_split(L->clones_bar.x, L->clones_bar.y, L->clones_bar.w, L->clones_bar.h,
+                       r->clones, r->clone_uniques, r->clones ? r->clones : 1,
+                       L->clones_label.r, L->clones_label.g, L->clones_label.b);
         {
             char u[12]; snfmt_count(u, sizeof(u), r->clone_uniques);
             char line[64];
@@ -313,8 +305,10 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
                 snprintf(line, sizeof(line), "%s unique (+%lu)", u, (unsigned long)r->clone_uniques_delta);
             else
                 snprintf(line, sizeof(line), "%s unique", u);
-            font_puts_scaled(PAD, y, line, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            DRAW_TEXT(L->clones_uniq, line);
         }
+
+        #undef DRAW_TEXT
 
         board_lcd_flush();
         return;

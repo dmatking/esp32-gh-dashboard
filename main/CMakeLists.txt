@@ -25,6 +25,7 @@ idf_component_register(
          "github_api.c"
          "traffic_csv.c"
          "dashboard.c"
+         "layout_cyd.c"
          "font8x16.c"
          ${EXTRA_SRCS}
     INCLUDE_DIRS "."

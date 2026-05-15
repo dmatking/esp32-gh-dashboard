@@ -13,6 +13,7 @@ screencap_add_sim(gh_dashboard_sim
         main_sim.c
         board_sim.c
         ${MAIN}/dashboard.c
+        ${MAIN}/layout_cyd.c
         ${MAIN}/font8x16.c
     INCLUDES
         ${MAIN}
