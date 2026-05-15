@@ -18,6 +18,7 @@
 #include "dashboard.h"
 #include "github_api.h"
 #include "screencap.h"
+#include "layout_editor.h"
 
 int   sim_argc;
 char **sim_argv;
@@ -121,12 +122,14 @@ int main(int argc, char **argv)
     sim_argv = argv;
 
     board_init();
+    layout_editor_init();
 
     // screen_idx: -1 = summary, 0..count-1 = per-repo card
     int screen_idx = -1;
     bool running = true;
 
     while (running && screencap_poll()) {
+        layout_editor_sync();
         if (screen_idx < 0)
             dashboard_draw_summary(&STATS);
         else

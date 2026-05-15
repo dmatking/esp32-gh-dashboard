@@ -15,7 +15,7 @@
 #define CLONES  0xFF, 0xA0, 0x00
 #define GREEN   0x00, 0xFF, 0x44
 
-const layout_cyd_repo_t cyd_repo_layout = {
+layout_cyd_repo_t cyd_repo_layout = {
     // ----- Top zone (flows downward; y on stars/desc is the
     // starting offset used when each item is present) -----
     .title  = { .x =   4, .y =  4, .scale = 1, .r = TITLE,  .right_align = false },

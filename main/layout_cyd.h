@@ -50,4 +50,6 @@ typedef struct {
     layout_text_t clones_uniq;
 } layout_cyd_repo_t;
 
-extern const layout_cyd_repo_t cyd_repo_layout;
+/* Non-const so the desktop sim's layout editor can mutate positions in
+ * place. Firmware code only reads from it. */
+extern layout_cyd_repo_t cyd_repo_layout;

@@ -1,0 +1,200 @@
+// Copyright 2026 David M. King
+// SPDX-License-Identifier: MIT
+//
+// Glue between screencap's drag editor and esp32-gh-dashboard's
+// data-driven CYD layout (main/layout_cyd.{h,c}).
+//
+// Builds a screencap_elem_t array seeded from cyd_repo_layout, registers
+// it with screencap, and provides save/reload callbacks that rewrite
+// main/layout_cyd.c on disk. The renderer reads cyd_repo_layout
+// directly, so changes made by the user (drag, arrow nudge) take effect
+// on the next frame without anything else needing to know.
+
+#include "layout_editor.h"
+#include "layout_cyd.h"
+#include "screencap.h"
+#include "font8x16.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* The 13 editable elements on the per-repo CYD screen. Order is
+ * cosmetic only — affects hit-test priority when rects overlap
+ * (later entries win). Widths/heights are sized for hit-test
+ * convenience, not exact glyph extent. The clock is deliberately not
+ * included because its x is a right-edge anchor (right_align in the
+ * layout) which the current drag model doesn't handle cleanly. */
+typedef struct {
+    const char    *id;
+    layout_text_t *text;   /* one of these is non-NULL */
+    layout_rect_t *rect;
+    int            w, h;   /* hit-test bbox for text elements */
+} elem_binding_t;
+
+static elem_binding_t       s_bindings[16];
+static int                  s_binding_count;
+static screencap_elem_t     s_elems[16];
+
+static void bind_text(const char *id, layout_text_t *t, int w, int h)
+{
+    s_bindings[s_binding_count].id   = id;
+    s_bindings[s_binding_count].text = t;
+    s_bindings[s_binding_count].w    = w;
+    s_bindings[s_binding_count].h    = h;
+    s_binding_count++;
+}
+
+static void bind_rect(const char *id, layout_rect_t *r)
+{
+    s_bindings[s_binding_count].id   = id;
+    s_bindings[s_binding_count].rect = r;
+    s_binding_count++;
+}
+
+/* Pull current layout positions into the screencap_elem_t array
+ * (called once at startup and after a reload). */
+static void layout_to_elems(void)
+{
+    for (int i = 0; i < s_binding_count; i++) {
+        elem_binding_t *b = &s_bindings[i];
+        s_elems[i].id = b->id;
+        if (b->text) {
+            s_elems[i].x = b->text->x;
+            s_elems[i].y = b->text->y;
+            s_elems[i].w = b->w;
+            s_elems[i].h = b->h;
+        } else if (b->rect) {
+            s_elems[i].x = b->rect->x;
+            s_elems[i].y = b->rect->y;
+            s_elems[i].w = b->rect->w;
+            s_elems[i].h = b->rect->h;
+        }
+    }
+}
+
+/* Push the (possibly user-edited) elem positions back into the layout
+ * struct. Called each frame so the renderer sees current values. */
+void layout_editor_sync(void)
+{
+    if (!screencap_editor_active()) return;
+    for (int i = 0; i < s_binding_count; i++) {
+        elem_binding_t *b = &s_bindings[i];
+        if (b->text) { b->text->x = s_elems[i].x; b->text->y = s_elems[i].y; }
+        else if (b->rect) {
+            b->rect->x = s_elems[i].x; b->rect->y = s_elems[i].y;
+            /* w/h are not draggable in this iteration */
+        }
+    }
+}
+
+/* ------------------------------------------------------------------
+ * Save: rewrite main/layout_cyd.c
+ * ------------------------------------------------------------------ */
+static void emit_text(FILE *f, const char *name, const layout_text_t *t)
+{
+    fprintf(f, "    .%-13s = { .x = %3d, .y = %3d, .scale = %d, "
+               ".r = 0x%02X, .g = 0x%02X, .b = 0x%02X%s },\n",
+            name, t->x, t->y, t->scale, t->r, t->g, t->b,
+            t->right_align ? ", .right_align = true" : "");
+}
+
+static void emit_rect(FILE *f, const char *name, const layout_rect_t *r)
+{
+    fprintf(f, "    .%-13s = { .x = %3d, .y = %3d, .w = %3d, .h = %2d },\n",
+            name, r->x, r->y, r->w, r->h);
+}
+
+static const char *resolve_save_path(void)
+{
+    /* Try a couple of relative paths so the user can run the sim from
+     * either the project root or sim/build_cyd28/. */
+    static const char *candidates[] = {
+        "main/layout_cyd.c",
+        "../main/layout_cyd.c",
+        "../../main/layout_cyd.c",
+        NULL,
+    };
+    for (int i = 0; candidates[i]; i++) {
+        FILE *probe = fopen(candidates[i], "r");
+        if (probe) { fclose(probe); return candidates[i]; }
+    }
+    return "main/layout_cyd.c";  /* will fail on open; caller logs */
+}
+
+static void save_callback(const screencap_elem_t *elems, int count, void *ctx)
+{
+    (void)elems; (void)count; (void)ctx;
+    /* The bindings already point into cyd_repo_layout, and
+     * layout_editor_sync() copied user-edited positions there each
+     * frame. So we emit the current layout struct directly. */
+
+    const char *path = resolve_save_path();
+    FILE *f = fopen(path, "w");
+    if (!f) {
+        fprintf(stderr, "save: could not open %s for writing\n", path);
+        return;
+    }
+    fprintf(f,
+        "// Copyright 2026 David M. King\n"
+        "// SPDX-License-Identifier: MIT\n"
+        "//\n"
+        "// Auto-generated by the desktop sim's layout editor.\n"
+        "// Edit by running the sim, dragging elements, pressing S.\n"
+        "// Manual edits will be preserved as long as the field order\n"
+        "// in layout_cyd.h doesn't change.\n"
+        "\n"
+        "#include \"layout_cyd.h\"\n\n"
+        "layout_cyd_repo_t cyd_repo_layout = {\n");
+    const layout_cyd_repo_t *L = &cyd_repo_layout;
+    emit_text(f, "title",         &L->title);
+    emit_text(f, "clock",         &L->clock);
+    emit_text(f, "stars",         &L->stars);
+    emit_text(f, "desc",          &L->desc);
+    fprintf(f, "\n");
+    emit_text(f, "views_label",   &L->views_label);
+    emit_text(f, "views_bignum",  &L->views_bignum);
+    emit_text(f, "views_delta",   &L->views_delta);
+    emit_rect(f, "views_bar",     &L->views_bar);
+    emit_text(f, "views_uniq",    &L->views_uniq);
+    fprintf(f, "\n");
+    emit_text(f, "clones_label",  &L->clones_label);
+    emit_text(f, "clones_bignum", &L->clones_bignum);
+    emit_text(f, "clones_delta",  &L->clones_delta);
+    emit_rect(f, "clones_bar",    &L->clones_bar);
+    emit_text(f, "clones_uniq",   &L->clones_uniq);
+    fprintf(f, "};\n");
+    fclose(f);
+    printf("save: wrote %s\n", path);
+}
+
+/* ------------------------------------------------------------------
+ * Public init
+ * ------------------------------------------------------------------ */
+void layout_editor_init(void)
+{
+    s_binding_count = 0;
+    layout_cyd_repo_t *L = &cyd_repo_layout;
+
+    /* Hit-test rects sized for the worst-case rendered width of each
+     * element. FONT_W = 8, scale-2 chars are 16 px wide. */
+    bind_text("title",         &L->title,        32 * FONT_W,           FONT_H);
+    bind_text("stars",         &L->stars,        16 * FONT_W,           FONT_H);
+    bind_text("desc",          &L->desc,         39 * FONT_W,           FONT_H * 2);
+
+    bind_text("views_label",   &L->views_label,   5 * FONT_W,           FONT_H);
+    bind_text("views_bignum",  &L->views_bignum,  4 * FONT_W * 2,       FONT_H * 2);
+    bind_text("views_delta",   &L->views_delta,   6 * FONT_W,           FONT_H);
+    bind_rect("views_bar",     &L->views_bar);
+    bind_text("views_uniq",    &L->views_uniq,   20 * FONT_W,           FONT_H);
+
+    bind_text("clones_label",  &L->clones_label,  6 * FONT_W,           FONT_H);
+    bind_text("clones_bignum", &L->clones_bignum, 4 * FONT_W * 2,       FONT_H * 2);
+    bind_text("clones_delta",  &L->clones_delta,  6 * FONT_W,           FONT_H);
+    bind_rect("clones_bar",    &L->clones_bar);
+    bind_text("clones_uniq",   &L->clones_uniq,  20 * FONT_W,           FONT_H);
+
+    layout_to_elems();
+    screencap_editor_register(s_elems, s_binding_count,
+                              save_callback, NULL, NULL);
+}

@@ -12,6 +12,7 @@ screencap_add_sim(gh_dashboard_sim
     SOURCES
         main_sim.c
         board_sim.c
+        layout_editor.c
         ${MAIN}/dashboard.c
         ${MAIN}/layout_cyd.c
         ${MAIN}/font8x16.c
