@@ -11,6 +11,8 @@
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
+#include <sys/select.h>
+#include <unistd.h>
 
 #include "board_interface.h"
 #include "dashboard.h"
@@ -134,13 +136,24 @@ int main(int argc, char **argv)
         screen_idx++;
         if (screen_idx >= STATS.count) screen_idx = -1;
 
-        // In interactive mode hold each screen for 4 s, polling for quit/P.
-        // In headless mode screencap_poll controls the frame count; skip wait.
+        // Interactive: wait for Enter on stdin before advancing.
+        // SDL events (Esc/P/G/click) keep working in the window.
         if (!screencap_is_headless()) {
-            Uint32 deadline = SDL_GetTicks() + 4000;
-            while (SDL_GetTicks() < deadline) {
+            printf("[Enter] next screen, Esc in window to quit\n");
+            fflush(stdout);
+            bool advance = false;
+            while (!advance) {
                 if (!screencap_poll()) { running = false; break; }
-                SDL_Delay(50);
+                fd_set rfds;
+                FD_ZERO(&rfds);
+                FD_SET(STDIN_FILENO, &rfds);
+                struct timeval tv = { 0, 50000 };  // 50 ms
+                if (select(STDIN_FILENO + 1, &rfds, NULL, NULL, &tv) > 0
+                    && FD_ISSET(STDIN_FILENO, &rfds)) {
+                    int c;
+                    while ((c = getchar()) != '\n' && c != EOF) { }
+                    advance = true;
+                }
             }
         }
     }

@@ -201,23 +201,21 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
         const int PAD = 4;
         int y = 4;
 
-        // Title: scale 2 if it fits (≤15 chars), else scale 1.
-        const int name_len   = (int)strlen(r->name);
-        const int title_scl  = (name_len <= 15) ? 2 : 1;
-        char name_buf[40];
-        const int title_max  = (title_scl == 2) ? 15 : 39;
-        int nlen = name_len < title_max ? name_len : title_max;
+        // Title: always scale 1 so vertical layout is stable across repos.
+        // 32 chars max leaves room for the clock on the right.
+        char name_buf[33];
+        const int name_len = (int)strlen(r->name);
+        int nlen = name_len < 32 ? name_len : 32;
         memcpy(name_buf, r->name, nlen);
         name_buf[nlen] = '\0';
-        font_puts_scaled(PAD, y, name_buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, title_scl);
+        font_puts_scaled(PAD, y, name_buf, C_TITLE_R, C_TITLE_G, C_TITLE_B, 1);
         {
             time_t now = time(NULL); struct tm t; localtime_r(&now, &t);
             int h12 = t.tm_hour % 12; if (h12 == 0) h12 = 12;
             char clk[8]; snprintf(clk, sizeof(clk), "%d:%02d", h12, t.tm_min);
-            int clk_y = y + (title_scl == 2 ? 4 : 0);
-            font_puts_right(W - PAD, clk_y, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
+            font_puts_right(W - PAD, y, clk, C_LABEL_R, C_LABEL_G, C_LABEL_B, 1);
         }
-        y += FONT_H * title_scl + 4;
+        y += FONT_H + 4;
 
         // Stars / forks
         if (r->stars || r->forks) {
@@ -254,8 +252,13 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
             y += 4;
         }
 
+        // Separator sits right under the variable-height top zone.
         draw_hline(PAD, y, W - PAD * 2, 0x33, 0x33, 0x55);
-        y += 4;
+
+        // Stats pane is anchored to a fixed Y so bars don't shift around
+        // when the description is shorter or absent.
+        const int STATS_Y = 88;
+        y = STATS_Y;
 
         const int BAR_H = 12;
         const int BAR_W = W - PAD * 2;

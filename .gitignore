@@ -4,6 +4,10 @@ sdkconfig
 sdkconfig.old
 dependencies.lock
 
+# Sim build dirs and saved screenshots
+sim/build*/
+screenshot_*.png
+
 # IDF managed components cache
 managed_components/
 
