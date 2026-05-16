@@ -154,15 +154,11 @@ static void save_callback(const screencap_elem_t *elems, int count, void *ctx)
     fprintf(f, "\n");
     emit_text(f, "views_label",   &L->views_label);
     emit_text(f, "views_bignum",  &L->views_bignum);
-    emit_text(f, "views_delta",   &L->views_delta);
     emit_rect(f, "views_bar",     &L->views_bar);
-    emit_text(f, "views_uniq",    &L->views_uniq);
     fprintf(f, "\n");
     emit_text(f, "clones_label",  &L->clones_label);
     emit_text(f, "clones_bignum", &L->clones_bignum);
-    emit_text(f, "clones_delta",  &L->clones_delta);
     emit_rect(f, "clones_bar",    &L->clones_bar);
-    emit_text(f, "clones_uniq",   &L->clones_uniq);
     fprintf(f, "};\n");
     fclose(f);
     printf("save: wrote %s\n", path);
@@ -182,17 +178,16 @@ void layout_editor_init(void)
     bind_text("stars",         &L->stars,        16 * FONT_W,           FONT_H);
     bind_text("desc",          &L->desc,         39 * FONT_W,           FONT_H * 2);
 
+    /* views_bignum is the anchor for the full inline stats line —
+     * its bbox should cover the whole "<num><delta> total <uniq><udelta> unique"
+     * stretch so the user can grab it anywhere along the line. */
     bind_text("views_label",   &L->views_label,   5 * FONT_W,           FONT_H);
-    bind_text("views_bignum",  &L->views_bignum,  4 * FONT_W * 2,       FONT_H * 2);
-    bind_text("views_delta",   &L->views_delta,   6 * FONT_W,           FONT_H);
+    bind_text("views_bignum",  &L->views_bignum, 33 * FONT_W,           FONT_H);
     bind_rect("views_bar",     &L->views_bar);
-    bind_text("views_uniq",    &L->views_uniq,   20 * FONT_W,           FONT_H);
 
     bind_text("clones_label",  &L->clones_label,  6 * FONT_W,           FONT_H);
-    bind_text("clones_bignum", &L->clones_bignum, 4 * FONT_W * 2,       FONT_H * 2);
-    bind_text("clones_delta",  &L->clones_delta,  6 * FONT_W,           FONT_H);
+    bind_text("clones_bignum", &L->clones_bignum, 33 * FONT_W,           FONT_H);
     bind_rect("clones_bar",    &L->clones_bar);
-    bind_text("clones_uniq",   &L->clones_uniq,  20 * FONT_W,           FONT_H);
 
     layout_to_elems();
     screencap_editor_register(s_elems, s_binding_count,

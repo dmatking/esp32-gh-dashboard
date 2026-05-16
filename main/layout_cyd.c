@@ -14,15 +14,11 @@ layout_cyd_repo_t cyd_repo_layout = {
     .stars         = { .x =   4, .y =  24, .scale = 1, .r = 0xFF, .g = 0xDD, .b = 0x00 },
     .desc          = { .x =   4, .y =  44, .scale = 1, .r = 0x88, .g = 0x88, .b = 0x88 },
 
-    .views_label   = { .x =   7, .y =  98, .scale = 1, .r = 0x40, .g = 0x80, .b = 0xFF },
-    .views_bignum  = { .x =  57, .y =  87, .scale = 2, .r = 0x40, .g = 0x80, .b = 0xFF },
-    .views_delta   = { .x = 100, .y =  98, .scale = 1, .r = 0x00, .g = 0xFF, .b = 0x44 },
-    .views_bar     = { .x =   4, .y = 122, .w = 312, .h = 12 },
-    .views_uniq    = { .x = 162, .y =  98, .scale = 1, .r = 0x88, .g = 0x88, .b = 0x88 },
+    .views_label   = { .x =   4, .y = 103, .scale = 1, .r = 0x40, .g = 0x80, .b = 0xFF },
+    .views_bar     = { .x =  62, .y = 103, .w = 256, .h = 14 },
+    .views_bignum  = { .x =  62, .y = 122, .scale = 1, .r = 0x88, .g = 0x88, .b = 0x88 },
 
-    .clones_label  = { .x =   6, .y = 185, .scale = 1, .r = 0xFF, .g = 0xA0, .b = 0x00 },
-    .clones_bignum = { .x =  62, .y = 175, .scale = 2, .r = 0xFF, .g = 0xA0, .b = 0x00 },
-    .clones_delta  = { .x = 104, .y = 185, .scale = 1, .r = 0x00, .g = 0xFF, .b = 0x44 },
-    .clones_bar    = { .x =   4, .y = 209, .w = 312, .h = 12 },
-    .clones_uniq   = { .x = 157, .y = 185, .scale = 1, .r = 0x88, .g = 0x88, .b = 0x88 },
+    .clones_label  = { .x =   4, .y = 174, .scale = 1, .r = 0xFF, .g = 0xA0, .b = 0x00 },
+    .clones_bar    = { .x =  62, .y = 174, .w = 256, .h = 14 },
+    .clones_bignum = { .x =  62, .y = 193, .scale = 1, .r = 0x88, .g = 0x88, .b = 0x88 },
 };

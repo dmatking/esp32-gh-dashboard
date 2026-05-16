@@ -37,17 +37,18 @@ typedef struct {
     layout_text_t desc;         // first line; line 2 (if any) sits below
 
     // Stats pane — absolute positions, stable across repos.
+    // `*_bignum` is the anchor for an inline-walked stats string that
+    // follows the Waveshare convention:
+    //   <num><delta> total  <uniq><udelta> unique
+    // with the numbers in `*_bignum`'s color and the (+N) deltas in
+    // green. Position only the bignum anchor; everything else flows.
     layout_text_t views_label;
     layout_text_t views_bignum;
-    layout_text_t views_delta;
     layout_rect_t views_bar;
-    layout_text_t views_uniq;
 
     layout_text_t clones_label;
     layout_text_t clones_bignum;
-    layout_text_t clones_delta;
     layout_rect_t clones_bar;
-    layout_text_t clones_uniq;
 } layout_cyd_repo_t;
 
 /* Non-const so the desktop sim's layout editor can mutate positions in

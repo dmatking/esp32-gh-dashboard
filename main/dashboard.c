@@ -263,52 +263,56 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
         // Separator sits just below the variable-height top zone.
         draw_hline(L->title.x, top_y, W - L->title.x * 2, 0x33, 0x33, 0x55);
 
+        // Inline-walk the Waveshare-style stats string starting at `anchor`:
+        //   <num><delta> total  <uniq><udelta> unique
+        // Numbers in `num_col`, deltas in green, label words in gray.
+        #define DRAW_STATS_LINE(anchor, total, total_d, uniq, uniq_d)              \
+            do {                                                                   \
+                const int  scl = (anchor).scale;                                   \
+                const int  cw  = FONT_W * scl;                                     \
+                int cx = (anchor).x;                                               \
+                const int cy = (anchor).y;                                         \
+                char n[12];     snfmt_count(n, sizeof(n), (total));                \
+                font_puts_scaled(cx, cy, n,                                        \
+                                 (anchor).r, (anchor).g, (anchor).b, scl);         \
+                cx += (int)strlen(n) * cw;                                         \
+                if ((total_d)) {                                                   \
+                    char d[14]; snprintf(d, sizeof(d), "(+%lu)",                   \
+                                         (unsigned long)(total_d));                \
+                    font_puts_scaled(cx, cy, d, 0x00, 0xFF, 0x44, scl);            \
+                    cx += (int)strlen(d) * cw;                                     \
+                }                                                                  \
+                font_puts_scaled(cx, cy, " total  ", 0x88, 0x88, 0x88, scl);       \
+                cx += 8 * cw;                                                      \
+                char u[12];     snfmt_count(u, sizeof(u), (uniq));                 \
+                font_puts_scaled(cx, cy, u, 0x88, 0x88, 0x88, scl);                \
+                cx += (int)strlen(u) * cw;                                         \
+                if ((uniq_d)) {                                                    \
+                    char d[14]; snprintf(d, sizeof(d), "(+%lu)",                   \
+                                         (unsigned long)(uniq_d));                 \
+                    font_puts_scaled(cx, cy, d, 0x00, 0xFF, 0x44, scl);            \
+                    cx += (int)strlen(d) * cw;                                     \
+                }                                                                  \
+                font_puts_scaled(cx, cy, " unique", 0x88, 0x88, 0x88, scl);        \
+            } while (0)
+
         // ----- Stats pane (absolute positions from the layout) -----
         DRAW_TEXT(L->views_label, "Views");
-        {
-            char n[12]; snfmt_count(n, sizeof(n), r->views);
-            DRAW_TEXT(L->views_bignum, n);
-            if (r->views_delta) {
-                char d[14]; snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->views_delta);
-                DRAW_TEXT(L->views_delta, d);
-            }
-        }
+        DRAW_STATS_LINE(L->views_bignum, r->views, r->views_delta,
+                        r->view_uniques, r->view_uniques_delta);
         draw_bar_split(L->views_bar.x, L->views_bar.y, L->views_bar.w, L->views_bar.h,
                        r->views, r->view_uniques, r->views ? r->views : 1,
                        L->views_label.r, L->views_label.g, L->views_label.b);
-        {
-            char u[12]; snfmt_count(u, sizeof(u), r->view_uniques);
-            char line[64];
-            if (r->view_uniques_delta)
-                snprintf(line, sizeof(line), "%s unique (+%lu)", u, (unsigned long)r->view_uniques_delta);
-            else
-                snprintf(line, sizeof(line), "%s unique", u);
-            DRAW_TEXT(L->views_uniq, line);
-        }
 
         DRAW_TEXT(L->clones_label, "Clones");
-        {
-            char n[12]; snfmt_count(n, sizeof(n), r->clones);
-            DRAW_TEXT(L->clones_bignum, n);
-            if (r->clones_delta) {
-                char d[14]; snprintf(d, sizeof(d), "(+%lu)", (unsigned long)r->clones_delta);
-                DRAW_TEXT(L->clones_delta, d);
-            }
-        }
+        DRAW_STATS_LINE(L->clones_bignum, r->clones, r->clones_delta,
+                        r->clone_uniques, r->clone_uniques_delta);
         draw_bar_split(L->clones_bar.x, L->clones_bar.y, L->clones_bar.w, L->clones_bar.h,
                        r->clones, r->clone_uniques, r->clones ? r->clones : 1,
                        L->clones_label.r, L->clones_label.g, L->clones_label.b);
-        {
-            char u[12]; snfmt_count(u, sizeof(u), r->clone_uniques);
-            char line[64];
-            if (r->clone_uniques_delta)
-                snprintf(line, sizeof(line), "%s unique (+%lu)", u, (unsigned long)r->clone_uniques_delta);
-            else
-                snprintf(line, sizeof(line), "%s unique", u);
-            DRAW_TEXT(L->clones_uniq, line);
-        }
 
         #undef DRAW_TEXT
+        #undef DRAW_STATS_LINE
 
         board_lcd_flush();
         return;
