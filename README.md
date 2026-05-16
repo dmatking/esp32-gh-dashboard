@@ -31,7 +31,23 @@ Pick the binary matching your board:
 
 ### Option A — Web flasher (easiest, no install required)
 
-Open **[ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in Chrome or Edge, connect your board via USB, and select the binary for your board from the table above.
+> **Use Chrome or Edge.** Firefox/Safari don't support the Web Serial API the flasher needs.
+
+1. **Download** the right binary for your board from the table above (right-click → Save Link As).
+2. **Plug the board into your computer.** Most CYDs use a CH340/CH9102 USB-serial chip — on Windows you may need the [CH340 driver](https://www.wch-ic.com/downloads/CH341SER_EXE.html). macOS and modern Linux usually work out of the box.
+3. **Open [ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in Chrome or Edge.
+4. **Click "Connect Esp"** (the green button). A browser dialog will list serial ports — pick the one labeled `USB-SERIAL CH340`, `CP210x`, or similar (likely the only one if you don't have other USB-serial devices plugged in). Click *Connect*.
+   - *Nothing in the dialog?* Unplug and replug the board, and confirm your USB cable is a **data cable**, not charge-only. Try a different port.
+5. **Wait for the chip to be detected** — the flasher will print a line like `Detected ESP32` (or `ESP32-P4`) and show offset fields below.
+6. **Set the firmware file at offset `0x0`:**
+   - In the first row, set the offset to **`0x0`** (zero — *not* the default 0x1000).
+   - Click **Choose File** and pick the `.bin` you downloaded in step 1.
+   - You can ignore any other offset rows — the merged binary already contains the bootloader + partition table + app at their correct internal offsets.
+7. **Click "Erase Flash"** (optional but recommended for a clean install).
+8. **Click "Program"** and wait — the progress bar takes about 20-30 seconds.
+9. When done, **unplug and replug the board** (or hit the RST button if your CYD has one). The dashboard should boot and display the *WiFi Setup* screen.
+
+**Stuck on "Connecting..." or `Failed to connect`?** Some ESP32 dev boards need to be put into download mode manually: hold the **BOOT** button (sometimes labeled IO0) while pressing-and-releasing **RESET** (sometimes EN), then release BOOT. Then retry step 4.
 
 ### Option B — esptool (Python)
 
