@@ -128,25 +128,29 @@ int main(int argc, char **argv)
     int screen_idx = -1;
     bool running = true;
 
+    // Helper: render the current screen (summary or per-repo) using the
+    // latest layout. Used by both the main loop and the inner wait loop
+    // so the display updates live while in edit mode.
+    #define REDRAW() do {                                       \
+        layout_editor_sync();                                   \
+        if (screen_idx < 0) dashboard_draw_summary(&STATS);     \
+        else                dashboard_draw_repo(&STATS, screen_idx); \
+    } while (0)
+
     while (running && screencap_poll()) {
-        layout_editor_sync();
-        if (screen_idx < 0)
-            dashboard_draw_summary(&STATS);
-        else
-            dashboard_draw_repo(&STATS, screen_idx);
+        REDRAW();
         // Each draw fn calls board_lcd_flush() internally.
 
-        screen_idx++;
-        if (screen_idx >= STATS.count) screen_idx = -1;
-
         // Interactive: wait for Enter on stdin before advancing.
-        // SDL events (Esc/P/G/click) keep working in the window.
+        // SDL events (Esc/P/G/click/edit drags) keep working in the
+        // window; in edit mode we redraw every poll so drags are live.
         if (!screencap_is_headless()) {
             printf("[Enter] next screen, Esc in window to quit\n");
             fflush(stdout);
             bool advance = false;
             while (!advance) {
                 if (!screencap_poll()) { running = false; break; }
+                if (screencap_editor_active()) REDRAW();
                 fd_set rfds;
                 FD_ZERO(&rfds);
                 FD_SET(STDIN_FILENO, &rfds);
@@ -159,8 +163,12 @@ int main(int argc, char **argv)
                 }
             }
         }
+
+        screen_idx++;
+        if (screen_idx >= STATS.count) screen_idx = -1;
     }
 
+    #undef REDRAW
     screencap_destroy();
     return 0;
 }
