@@ -51,3 +51,24 @@ void board_lcd_unpack_rgb(uint16_t color, uint8_t *r, uint8_t *g, uint8_t *b);
 // internal pullup), or -1 if the board has no such button. A weak default
 // returns -1 (no button).
 int board_get_button_gpio(void);
+
+// ---------------------------------------------------------------------------
+// Stripe rendering (memory-constrained boards)
+// ---------------------------------------------------------------------------
+// Some boards (e.g. CYD 3.5" 480x320 on classic ESP32) can't fit a full-screen
+// RGB565 framebuffer in internal SRAM. Those boards expose a stripe buffer
+// covering only a horizontal band of the screen, and ask callers to render
+// the full scene once per stripe — pixel writes outside the active stripe
+// are silently dropped.
+//
+// Default implementations report 1 stripe and a no-op begin, so non-stripe
+// callers transparently fall through to the existing single-buffer flow.
+//
+// Typical usage:
+//   int n = board_lcd_stripe_count();
+//   for (int s = 0; s < n; s++) {
+//       board_lcd_begin_stripe(s);
+//       render_scene();   // calls clear / pixel writes / flush per stripe
+//   }
+int  board_lcd_stripe_count(void);
+void board_lcd_begin_stripe(int idx);

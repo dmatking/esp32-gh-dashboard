@@ -8,3 +8,5 @@
 __attribute__((weak)) void board_lcd_sanity_test(void) {}
 __attribute__((weak)) void board_lcd_fill(uint16_t color) { (void)color; }
 __attribute__((weak)) int  board_get_button_gpio(void) { return -1; }
+__attribute__((weak)) int  board_lcd_stripe_count(void) { return 1; }
+__attribute__((weak)) void board_lcd_begin_stripe(int idx) { (void)idx; }

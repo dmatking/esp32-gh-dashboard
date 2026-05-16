@@ -185,7 +185,7 @@ static void snfmt_count(char *buf, int buflen, uint32_t n)
 
 // --- Screens ---
 
-void dashboard_draw_repo(const gh_stats_t *stats, int idx)
+static void dashboard_draw_repo_inner(const gh_stats_t *stats, int idx)
 {
     if (idx < 0 || idx >= stats->count) return;
     const gh_repo_t *r = &stats->repos[idx];
@@ -198,7 +198,7 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     // -----------------------------------------------------------------------
     // Small-screen layout (320×240, CYD)
     // -----------------------------------------------------------------------
-    if (W <= 320) {
+    if (W <= 480) {
         const layout_cyd_repo_t *L = &cyd_repo_layout;
 
         // Helper: draw a text element (handles right-alignment).
@@ -471,7 +471,7 @@ void dashboard_draw_repo(const gh_stats_t *stats, int idx)
     board_lcd_flush();
 }
 
-void dashboard_draw_summary(const gh_stats_t *stats)
+static void dashboard_draw_summary_inner(const gh_stats_t *stats)
 {
     const int W = board_lcd_width();
     const int H = board_lcd_height();
@@ -482,7 +482,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     // -----------------------------------------------------------------------
     // Small-screen layout (320×240, CYD)
     // -----------------------------------------------------------------------
-    if (W <= 320) {
+    if (W <= 480) {
         const int PAD   = 4;
         const int BAR_X = PAD + 7 * FONT_W;  // 60
         const int BAR_W = W - BAR_X - PAD;
@@ -740,7 +740,7 @@ void dashboard_draw_summary(const gh_stats_t *stats)
     board_lcd_flush();
 }
 
-void dashboard_draw_fetching(void)
+static void dashboard_draw_fetching_inner(void)
 {
     const int W = board_lcd_width();
     const int H = board_lcd_height();
@@ -755,7 +755,7 @@ void dashboard_draw_fetching(void)
     board_lcd_flush();
 }
 
-void dashboard_draw_error(const char *msg)
+static void dashboard_draw_error_inner(const char *msg)
 {
     const int W = board_lcd_width();
     const int H = board_lcd_height();
@@ -768,7 +768,7 @@ void dashboard_draw_error(const char *msg)
     board_lcd_flush();
 }
 
-void dashboard_draw_provisioning(const char *title, const char *ssid)
+static void dashboard_draw_provisioning_inner(const char *title, const char *ssid)
 {
     const int W = board_lcd_width();
     const int H = board_lcd_height();
@@ -809,3 +809,36 @@ void dashboard_draw_provisioning(const char *title, const char *ssid)
 
     board_lcd_flush();
 }
+
+// ---------------------------------------------------------------------------
+// Public entry points
+//
+// On stripe-rendered boards the inner draw functions get called once per
+// stripe; the stripe board's begin_stripe sets the active band and its
+// pixel/clear/flush APIs drop out-of-band writes. On non-stripe boards
+// (the default) stripe_count is 1 and begin_stripe is a no-op, so this
+// reduces to a single call exactly like before.
+// ---------------------------------------------------------------------------
+
+#define STRIPE_LOOP(call) do {                  \
+    int _n = board_lcd_stripe_count();          \
+    for (int _s = 0; _s < _n; _s++) {           \
+        board_lcd_begin_stripe(_s);             \
+        call;                                   \
+    }                                           \
+} while (0)
+
+void dashboard_draw_repo(const gh_stats_t *stats, int idx)
+    { STRIPE_LOOP(dashboard_draw_repo_inner(stats, idx)); }
+
+void dashboard_draw_summary(const gh_stats_t *stats)
+    { STRIPE_LOOP(dashboard_draw_summary_inner(stats)); }
+
+void dashboard_draw_fetching(void)
+    { STRIPE_LOOP(dashboard_draw_fetching_inner()); }
+
+void dashboard_draw_error(const char *msg)
+    { STRIPE_LOOP(dashboard_draw_error_inner(msg)); }
+
+void dashboard_draw_provisioning(const char *title, const char *ssid)
+    { STRIPE_LOOP(dashboard_draw_provisioning_inner(title, ssid)); }

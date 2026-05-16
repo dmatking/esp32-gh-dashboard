@@ -1,8 +1,16 @@
 # esp32-gh-dashboard
 
-A GitHub traffic dashboard built primarily for the wildly popular **"CYD"** (Cheap Yellow Display — the ~$10 ESP32 with built-in 2.8" ILI9341 screen). Also supports the higher-end **Waveshare ESP32-P4-WIFI6-Touch-LCD-4B** for the 720×720 round-display crowd. Shows views, clones, stars, and day-over-day deltas for all your repositories, cycling through a summary screen and a per-repo detail screen for each.
+A GitHub traffic dashboard built primarily for the wildly popular **"CYD"** family (Cheap Yellow Display — the cheap ESP32-with-screen modules). Also runs on the higher-end Waveshare ESP32-P4-WIFI6-Touch-LCD-4B for the 720×720 round-display crowd. Shows views, clones, stars, and day-over-day deltas for all your repositories, cycling through a summary screen and a per-repo detail screen for each.
 
-<img src="assets/cyd_summary.png" alt="CYD summary screen" width="320"><img src="assets/cyd_repo.png" alt="CYD repo screen" width="320">
+<img src="assets/cyd_summary.png" alt="CYD 2.8 summary screen" width="320"><img src="assets/cyd_repo.png" alt="CYD 2.8 repo screen" width="320">
+
+<details><summary>CYD 3.5" screenshots</summary>
+
+<img src="assets/cyd35_summary.png" alt="CYD 3.5 summary screen" width="480"><img src="assets/cyd35_repo.png" alt="CYD 3.5 repo screen" width="480">
+
+The 3.5" board renders the same layout as the 2.8" in the top-left, with empty space below — easy to retune later if you want to use the full 480×320 area.
+
+</details>
 
 <details><summary>Waveshare P4 screenshots</summary>
 
@@ -14,7 +22,7 @@ A GitHub traffic dashboard built primarily for the wildly popular **"CYD"** (Che
 
 ## What you need
 
-- An **ESP32 "CYD" 2.8" ILI9341** dev board (also sold as E32R28T / E32N28T — anything with a USB-C / micro-USB plug, a yellow PCB, and a 2.8" screen) **or** a **Waveshare ESP32-P4-WIFI6-Touch-LCD-4B**
+- One of the supported boards (full list below)
 - A GitHub classic personal access token with `repo` scope — [how to create one](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic)
 - The [github-traffic-log](https://github.com/dmatking/github-traffic-log) companion repo set up and running (collects your traffic data daily)
 
@@ -24,10 +32,12 @@ A GitHub traffic dashboard built primarily for the wildly popular **"CYD"** (Che
 
 Pick the binary matching your board:
 
-| Board | Binary |
-| ----- | ------ |
-| **CYD ESP32 ILI9341** (recommended) | [`releases/esp32-gh-dashboard-cyd28-flash.bin`](releases/esp32-gh-dashboard-cyd28-flash.bin) |
-| Waveshare ESP32-P4 | [`releases/esp32-gh-dashboard-p4-flash.bin`](releases/esp32-gh-dashboard-p4-flash.bin) |
+| Board | Chip | Display | Binary |
+| ----- | ---- | ------- | ------ |
+| **CYD 2.8" ILI9341** (E32R28T/E32N28T) — recommended | ESP32 | 320×240 | [`esp32-gh-dashboard-cyd28-flash.bin`](releases/esp32-gh-dashboard-cyd28-flash.bin) |
+| **CYD-S3 2.8" ILI9341** (ES3C28P) | ESP32-S3 | 320×240 | [`esp32-gh-dashboard-cyd28s3-flash.bin`](releases/esp32-gh-dashboard-cyd28s3-flash.bin) |
+| **CYD 3.5" ST7796** (E32R35T/E32N35T) | ESP32 | 480×320 | [`esp32-gh-dashboard-cyd35-flash.bin`](releases/esp32-gh-dashboard-cyd35-flash.bin) |
+| Waveshare ESP32-P4-WIFI6-Touch-LCD-4B | ESP32-P4 | 720×720 | [`esp32-gh-dashboard-p4-flash.bin`](releases/esp32-gh-dashboard-p4-flash.bin) |
 
 ### Option A — Web flasher (easiest, no install required)
 
@@ -57,7 +67,7 @@ Open **[ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in C
 
 ### Option B — esptool (Python)
 
-For the CYD (ESP32):
+For the CYD 2.8" (classic ESP32):
 ```bash
 pip install esptool
 python -m esptool --chip esp32 -b 460800 \
@@ -65,9 +75,22 @@ python -m esptool --chip esp32 -b 460800 \
   write_flash 0x0 releases/esp32-gh-dashboard-cyd28-flash.bin
 ```
 
+For the CYD-S3 2.8" (ESP32-S3):
+```bash
+python -m esptool --chip esp32s3 -b 460800 \
+  --before default_reset --after hard_reset \
+  write_flash 0x0 releases/esp32-gh-dashboard-cyd28s3-flash.bin
+```
+
+For the CYD 3.5" (classic ESP32):
+```bash
+python -m esptool --chip esp32 -b 460800 \
+  --before default_reset --after hard_reset \
+  write_flash 0x0 releases/esp32-gh-dashboard-cyd35-flash.bin
+```
+
 For the Waveshare P4:
 ```bash
-pip install esptool
 python -m esptool --chip esp32p4 -b 460800 \
   --before default_reset --after hard_reset \
   write_flash 0x0 releases/esp32-gh-dashboard-p4-flash.bin
