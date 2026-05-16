@@ -31,6 +31,10 @@ Pick the binary matching your board:
 
 ### Option A — Web flasher (easiest, no install required)
 
+Open **[ESPConnect](https://thelastoutpostworkshop.github.io/ESPConnect/)** in Chrome or Edge, plug your board in, and flash the binary you downloaded above.
+
+<details><summary>Step-by-step instructions (click to expand)</summary>
+
 > **Use Chrome or Edge.** Firefox/Safari don't support the Web Serial API the flasher needs.
 
 1. **Download** the right binary for your board from the table above (right-click → Save Link As).
@@ -48,6 +52,8 @@ Pick the binary matching your board:
 9. When done, **unplug and replug the board** (or hit the RST button if your CYD has one). The dashboard should boot and display the *WiFi Setup* screen.
 
 **Stuck on "Connecting..." or `Failed to connect`?** Some ESP32 dev boards need to be put into download mode manually: hold the **BOOT** button (sometimes labeled IO0) while pressing-and-releasing **RESET** (sometimes EN), then release BOOT. Then retry step 4.
+
+</details>
 
 ### Option B — esptool (Python)
 
