@@ -23,3 +23,4 @@ __pycache__/
 .claude/
 main/idf_component.yml
 board_config.cmake
+*.jpg
