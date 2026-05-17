@@ -2,11 +2,11 @@
 
 A GitHub traffic dashboard built primarily for the wildly popular **"CYD"** family (Cheap Yellow Display — the cheap ESP32-with-screen modules). Also runs on the higher-end Waveshare ESP32-P4-WIFI6-Touch-LCD-4B for the 720×720 round-display crowd. Shows views, clones, stars, and day-over-day deltas for all your repositories, cycling through a summary screen and a per-repo detail screen for each.
 
-<img src="assets/cyd_summary.png" alt="CYD 2.8 summary screen" width="320"><img src="assets/cyd_repo.png" alt="CYD 2.8 repo screen" width="320">
+<img src="assets/cyd_summary.png" alt="CYD 2.8 summary screen" width="320" hspace="8">&nbsp;<img src="assets/cyd_repo.png" alt="CYD 2.8 repo screen" width="320" hspace="8">
 
 <details><summary>CYD 3.5" screenshots</summary>
 
-<img src="assets/cyd35_summary.png" alt="CYD 3.5 summary screen" width="480"><img src="assets/cyd35_repo.png" alt="CYD 3.5 repo screen" width="480">
+<img src="assets/cyd35_summary.png" alt="CYD 3.5 summary screen" width="480" hspace="8">&nbsp;<img src="assets/cyd35_repo.png" alt="CYD 3.5 repo screen" width="480" hspace="8">
 
 The 3.5" board renders the same layout as the 2.8" in the top-left, with empty space below — easy to retune later if you want to use the full 480×320 area.
 
@@ -14,7 +14,7 @@ The 3.5" board renders the same layout as the 2.8" in the top-left, with empty s
 
 <details><summary>Waveshare P4 screenshots</summary>
 
-<img src="assets/p4_summary.png" alt="P4 summary screen" width="360"><img src="assets/p4_repo.png" alt="P4 repo screen" width="360">
+<img src="assets/p4_summary.png" alt="P4 summary screen" width="360" hspace="8">&nbsp;<img src="assets/p4_repo.png" alt="P4 repo screen" width="360" hspace="8">
 
 </details>
 
