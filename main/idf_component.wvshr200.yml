@@ -1,0 +1,4 @@
+## IDF Component Manager Manifest File
+dependencies:
+  idf: '>=5.3'
+  espressif/esp_lcd_touch_cst816s: '*'

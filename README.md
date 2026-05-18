@@ -37,6 +37,7 @@ Pick the binary matching your board:
 | **CYD 2.8" ILI9341** (E32R28T/E32N28T) — recommended | ESP32 | 320×240 | [`esp32-gh-dashboard-cyd28-flash.bin`](releases/esp32-gh-dashboard-cyd28-flash.bin) |
 | **CYD-S3 2.8" ILI9341** (ES3C28P) | ESP32-S3 | 320×240 | [`esp32-gh-dashboard-cyd28s3-flash.bin`](releases/esp32-gh-dashboard-cyd28s3-flash.bin) |
 | **CYD 3.5" ST7796** (E32R35T/E32N35T) | ESP32 | 480×320 | [`esp32-gh-dashboard-cyd35-flash.bin`](releases/esp32-gh-dashboard-cyd35-flash.bin) |
+| **Waveshare ESP32-S3 Touch LCD 2.0"** (ST7789) | ESP32-S3 | 320×240 (landscape) | [`esp32-gh-dashboard-wvshr200-flash.bin`](releases/esp32-gh-dashboard-wvshr200-flash.bin) |
 | Waveshare ESP32-P4-WIFI6-Touch-LCD-4B | ESP32-P4 | 720×720 | [`esp32-gh-dashboard-p4-flash.bin`](releases/esp32-gh-dashboard-p4-flash.bin) |
 
 ### Option A — Web flasher (easiest, no install required)
@@ -87,6 +88,13 @@ For the CYD 3.5" (classic ESP32):
 python -m esptool --chip esp32 -b 460800 \
   --before default_reset --after hard_reset \
   write_flash 0x0 releases/esp32-gh-dashboard-cyd35-flash.bin
+```
+
+For the Waveshare 2.0" Touch (ESP32-S3):
+```bash
+python -m esptool --chip esp32s3 -b 460800 \
+  --before default_reset --after hard_reset \
+  write_flash 0x0 releases/esp32-gh-dashboard-wvshr200-flash.bin
 ```
 
 For the Waveshare P4:
